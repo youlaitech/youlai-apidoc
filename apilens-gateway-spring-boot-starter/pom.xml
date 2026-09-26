@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.haoxianrui</groupId>
+        <artifactId>apilens-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <!-- 网关聚合 Starter：在 Gateway 网关上引入，聚合各微服务 OpenAPI 文档 -->
+    <artifactId>apilens-gateway-spring-boot-starter</artifactId>
+
+    <name>apilens-gateway-spring-boot-starter</name>
+    <description>apilens 网关聚合 Starter — Spring Cloud Gateway + WebFlux</description>
+
+    <dependencies>
+        <!-- 核心模块：前端静态资源 + 配置属性 + 工具类 -->
+        <dependency>
+            <groupId>io.github.haoxianrui</groupId>
+            <artifactId>apilens-core</artifactId>
+        </dependency>
+        <!-- Spring Cloud Gateway（基于 WebFlux） -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <version>${spring-cloud.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- SpringDoc OpenAPI WebFlux — 网关自身的 /v3/api-docs 端点 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+</project>
