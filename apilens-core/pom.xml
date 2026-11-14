@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.github.haoxianrui</groupId>
+        <groupId>tech.youlai</groupId>
         <artifactId>apilens-parent</artifactId>
         <version>1.0.0</version>
     </parent>
@@ -17,6 +17,13 @@
     <description>apilens 核心：前端静态资源、配置属性、工具类</description>
 
     <dependencies>
+        <!-- ApilensDocProperties 的 @ConfigurationProperties 注解来自 spring-boot 主 jar -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+            <version>${spring-boot.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <!-- 配置属性元数据（编译期生成 additional-spring-configuration-metadata.json） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

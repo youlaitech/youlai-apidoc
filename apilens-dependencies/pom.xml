@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!-- BOM：使用方引入后无需声明版本号 -->
-    <groupId>io.github.haoxianrui</groupId>
+    <groupId>tech.youlai</groupId>
     <artifactId>apilens-dependencies</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
@@ -14,24 +14,25 @@
     <description>apilens 版本管理 BOM</description>
 
     <properties>
-        <springdoc.version>2.8.9</springdoc.version>
+        <!-- springdoc 3.1.x 面向 Spring Boot 4，默认输出 OpenAPI 3.1.0；2.x 只兼容 Boot 3 -->
+        <springdoc.version>3.1.1</springdoc.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <!-- apilens 自身模块 -->
             <dependency>
-                <groupId>io.github.haoxianrui</groupId>
+                <groupId>tech.youlai</groupId>
                 <artifactId>apilens-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.haoxianrui</groupId>
+                <groupId>tech.youlai</groupId>
                 <artifactId>apilens-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.haoxianrui</groupId>
+                <groupId>tech.youlai</groupId>
                 <artifactId>apilens-gateway-spring-boot-starter</artifactId>
                 <version>${project.version}</version>
             </dependency>

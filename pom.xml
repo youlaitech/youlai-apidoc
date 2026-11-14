@@ -5,14 +5,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!-- 父项目：统一管理子模块构建和发布配置 -->
-    <groupId>io.github.haoxianrui</groupId>
+    <groupId>tech.youlai</groupId>
     <artifactId>apilens-parent</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>apilens-parent</name>
     <description>OpenAPI 3 接口文档 UI — knife4j 替代方案，基于 SpringDoc + Vue3 自建</description>
-    <url>https://github.com/haoxianrui/youlai-apilens</url>
+    <url>https://github.com/youlaitech/youlai-apilens</url>
 
     <licenses>
         <license>
@@ -30,9 +30,9 @@
     </developers>
 
     <scm>
-        <url>https://github.com/haoxianrui/youlai-apilens</url>
-        <connection>scm:git:git://github.com/haoxianrui/youlai-apilens.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/haoxianrui/youlai-apilens.git</developerConnection>
+        <url>https://github.com/youlaitech/youlai-apilens</url>
+        <connection>scm:git:git://github.com/youlaitech/youlai-apilens.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apilens.git</developerConnection>
     </scm>
 
     <modules>
@@ -41,6 +41,19 @@
         <module>apilens-spring-boot-starter</module>
         <module>apilens-gateway-spring-boot-starter</module>
     </modules>
+
+    <!-- 子模块依赖版本统一由 BOM 解析 -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>tech.youlai</groupId>
+                <artifactId>apilens-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

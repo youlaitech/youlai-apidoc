@@ -9,8 +9,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.web.reactive.config.ResourceHandlerRegistry;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
+import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * apilens 网关聚合自动配置类
@@ -52,7 +54,19 @@ public class ApilensDocGatewayAutoConfiguration implements WebFluxConfigurer {
      * <p>提供 /v3/api-docs/swagger-config、/v3/api-docs/{service}、/v3/api-docs/aggregate 端点</p>
      */
     @Bean
-    public GatewayDocController gatewayDocController(GatewayDocProperties properties) {
-        return new GatewayDocController(properties);
+    public GatewayDocController gatewayDocController(GatewayDocProperties properties, WebClient.Builder apilensWebClientBuilder) {
+        return new GatewayDocController(properties, apilensWebClientBuilder);
+    }
+
+    /**
+     * 文档聚合专用的负载均衡 WebClient 构建器
+     *
+     * <p>聚合时通过 lb://service-name 从注册中心拉取各服务文档，
+     * 需要宿主网关引入 spring-cloud-starter-loadbalancer 才能解析服务名。</p>
+     */
+    @Bean("apilensWebClientBuilder")
+    @LoadBalanced
+    public WebClient.Builder apilensWebClientBuilder() {
+        return WebClient.builder();
     }
 }

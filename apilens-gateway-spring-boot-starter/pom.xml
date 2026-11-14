@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.github.haoxianrui</groupId>
+        <groupId>tech.youlai</groupId>
         <artifactId>apilens-parent</artifactId>
         <version>1.0.0</version>
     </parent>
@@ -16,23 +16,47 @@
     <name>apilens-gateway-spring-boot-starter</name>
     <description>apilens 网关聚合 Starter — Spring Cloud Gateway + WebFlux</description>
 
+    <properties>
+        <!-- 仅用于本模块编译期解析 spring-cloud BOM；使用方（网关项目）自行管理自己的 spring-cloud 版本 -->
+        <spring-cloud.bom.version>2025.0.0</spring-cloud.bom.version>
+    </properties>
+
+    <!-- dependencyManagement 不随依赖传递，只影响本模块构建 -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- 核心模块：前端静态资源 + 配置属性 + 工具类 -->
         <dependency>
-            <groupId>io.github.haoxianrui</groupId>
+            <groupId>tech.youlai</groupId>
             <artifactId>apilens-core</artifactId>
         </dependency>
         <!-- Spring Cloud Gateway（基于 WebFlux） -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-gateway</artifactId>
-            <version>${spring-cloud.version}</version>
+            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
             <scope>provided</scope>
         </dependency>
         <!-- SpringDoc OpenAPI WebFlux — 网关自身的 /v3/api-docs 端点 -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- GatewayDocProperties 使用 @Data 生成 getter -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

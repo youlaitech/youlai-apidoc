@@ -1,6 +1,8 @@
 package com.apilens.doc.gateway.controller;
 
 import com.apilens.doc.gateway.properties.GatewayDocProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,13 +39,16 @@ import java.util.*;
 @RestController
 public class GatewayDocController {
 
+    private static final ParameterizedTypeReference<Map<String, Object>> DOC_TYPE =
+            new ParameterizedTypeReference<>() {};
+
     private final GatewayDocProperties properties;
     private final WebClient webClient;
 
-    public GatewayDocController(GatewayDocProperties properties) {
+    public GatewayDocController(GatewayDocProperties properties,
+                                @Qualifier("apilensWebClientBuilder") WebClient.Builder webClientBuilder) {
         this.properties = properties;
-        // WebClient 不预设 baseUrl，每个请求动态拼接 lb://service-name + path
-        this.webClient = WebClient.builder().build();
+        this.webClient = webClientBuilder.build();
     }
 
     /**
@@ -83,8 +88,7 @@ public class GatewayDocController {
         return webClient.get()
                 .uri(uri)
                 .retrieve()
-                .bodyToMono(Map.class)
-                .cast(Map.class);
+                .bodyToMono(DOC_TYPE);
     }
 
     /**
@@ -100,9 +104,10 @@ public class GatewayDocController {
             return Mono.just(Collections.emptyMap());
         }
 
-        // 并行拉取所有服务文档，onErrorResume 保证单个服务失败不中断整体
+        // 并行拉取所有服务文档，每个结果携带服务名，onErrorResume 保证单个服务失败不中断整体
         return Flux.fromIterable(services)
-                .flatMap(service -> fetchServiceDocSafely(service))
+                .flatMap(service -> fetchServiceDocSafely(service)
+                        .map(doc -> new AbstractMap.SimpleImmutableEntry<>(service, doc)))
                 .collectList()
                 .map(this::mergeDocs);
     }
@@ -115,8 +120,7 @@ public class GatewayDocController {
         return webClient.get()
                 .uri(uri)
                 .retrieve()
-                .bodyToMono(Map.class)
-                .cast(Map.class)
+                .bodyToMono(DOC_TYPE)
                 .onErrorResume(e -> {
                     // 拉取失败时返回空文档，避免一个服务挂掉导致整个聚合失败
                     return Mono.just(Collections.emptyMap());
@@ -128,35 +132,38 @@ public class GatewayDocController {
      *
      * <p>合并规则：</p>
      * <ol>
-     *   <li>info：取第一个非空文档的 info</li>
+     *   <li>openapi / info：取第一个非空文档的</li>
      *   <li>paths：所有 paths 合并到同一个 Map，key 为 "/service-name/path" 避免冲突</li>
      *   <li>tags：按 name 去重合并</li>
      *   <li>components.schemas：合并所有 schema 定义</li>
      * </ol>
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> mergeDocs(List<Map<String, Object>> docs) {
+    private Map<String, Object> mergeDocs(List<? extends Map.Entry<String, Map<String, Object>>> docs) {
         Map<String, Object> merged = new LinkedHashMap<>();
         Map<String, Object> mergedPaths = new LinkedHashMap<>();
         List<Map<String, Object>> mergedTags = new ArrayList<>();
         Set<String> tagNames = new HashSet<>();
         Map<String, Object> mergedSchemas = new LinkedHashMap<>();
 
-        for (int i = 0; i < docs.size(); i++) {
-            Map<String, Object> doc = docs.get(i);
+        for (Map.Entry<String, Map<String, Object>> entry : docs) {
+            Map<String, Object> doc = entry.getValue();
             if (doc == null || doc.isEmpty()) continue;
 
-            // info：取第一个有效文档的
+            // openapi / info：取第一个有效文档的
+            if (!merged.containsKey("openapi") && doc.get("openapi") instanceof String openapi) {
+                merged.put("openapi", openapi);
+            }
             if (!merged.containsKey("info") && doc.containsKey("info")) {
                 merged.put("info", doc.get("info"));
             }
 
             // paths：合并，path key 加服务名前缀避免不同服务相同 path 互相覆盖
-            String serviceName = properties.getServices().get(i);
+            String serviceName = entry.getKey();
             Map<String, Object> paths = (Map<String, Object>) doc.getOrDefault("paths", Collections.emptyMap());
-            for (Map.Entry<String, Object> entry : paths.entrySet()) {
-                String pathKey = "/" + serviceName + entry.getKey();
-                mergedPaths.put(pathKey, entry.getValue());
+            for (Map.Entry<String, Object> pathEntry : paths.entrySet()) {
+                String pathKey = "/" + serviceName + pathEntry.getKey();
+                mergedPaths.put(pathKey, pathEntry.getValue());
             }
 
             // tags：按 name 去重
@@ -179,7 +186,8 @@ public class GatewayDocController {
             }
         }
 
-        merged.put("openapi", "3.0.1");
+        // springdoc 3.1.x 默认输出 OpenAPI 3.1.0；聚合结果跟随第一个服务的文档，缺失时兜底
+        merged.putIfAbsent("openapi", "3.1.0");
         merged.put("paths", mergedPaths);
         if (!mergedTags.isEmpty()) {
             merged.put("tags", mergedTags);
