@@ -11,7 +11,9 @@ interface CurlOptions {
   body?: string;
 }
 
-/** 生成 cURL 命令字符串 */
+/**
+ * 生成 cURL 命令字符串
+ */
 export function generateCurl(opts: CurlOptions): string {
   const parts: string[] = [`curl -X ${opts.method.toUpperCase()} '${opts.url}'`];
 
@@ -28,7 +30,9 @@ export function generateCurl(opts: CurlOptions): string {
   return parts.join(" \\\n");
 }
 
-/** 复制文本到剪贴板 */
+/**
+ * 复制文本到剪贴板
+ */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);

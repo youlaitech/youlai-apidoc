@@ -10,6 +10,15 @@ export default defineConfig({
   plugins: [vue()],
   // 静态资源前缀，与后端 META-INF/resources/apilens/ 对应
   base: "/apilens/",
+  // swagger-parser 引用了 Node 的 global 与 buffer
+  define: {
+    global: "globalThis",
+  },
+  resolve: {
+    alias: {
+      buffer: "buffer/",
+    },
+  },
   build: {
     outDir: outputDir,
     emptyOutDir: true,
@@ -26,6 +35,8 @@ export default defineConfig({
     proxy: {
       // 开发时代理到后端 SpringDoc 端点
       "/v3/api-docs": "http://localhost:8000",
+      // 在线调试的业务接口也走代理，带斜杠避免匹配到 /apilens/
+      "/api/": "http://localhost:8000",
     },
   },
 });

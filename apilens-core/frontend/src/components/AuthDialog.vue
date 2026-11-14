@@ -1,148 +1,178 @@
 <script setup lang="ts">
-import { ref, reactive } from "vue";
-import axios from "axios";
-import { setToken } from "../stores/auth";
-import { copyToClipboard } from "../utils/curl";
+import { ref, reactive, computed } from "vue";
+import type { SecurityScheme } from "../types/openapi";
+import { authValues, setAuthValue, clearAuthValues } from "../stores/auth";
 
 /**
- * OAuth2 授权弹窗
- *
- * 支持 OAuth2 密码模式（password grant）自动获取 token：
- * 1. 用户输入 tokenUrl / username / password / clientId / clientSecret
- * 2. 向 tokenUrl 发送 password grant 请求
- * 3. 获取 access_token 后自动填充到全局 auth store
- *
- * 同时也支持直接粘贴 token（跳过 OAuth2 流程）。
+ * 文档声明的 securitySchemes
  */
+const props = defineProps<{
+  schemes: Record<string, SecurityScheme>;
+}>();
+
+interface SchemeItem {
+  name: string;
+  scheme: SecurityScheme;
+}
 
 const visible = ref(false);
+const values = reactive<Record<string, string>>({});
+const basicUsers = reactive<Record<string, string>>({});
+const basicPasswords = reactive<Record<string, string>>({});
 
-// OAuth2 配置
-const oauthForm = reactive({
-  tokenUrl: "/auth/oauth2/token",
-  username: "",
-  password: "",
-  clientId: "client",
-  clientSecret: "secret",
-});
+const schemeList = computed<SchemeItem[]>(() =>
+  Object.entries(props.schemes || {}).map(([name, scheme]) => ({ name, scheme }))
+);
 
-// 当前模式：oauth2 | manual
-const mode = ref<"oauth2" | "manual">("oauth2");
+function isBasic(item: SchemeItem): boolean {
+  return item.scheme.type === "http" && item.scheme.scheme?.toLowerCase() === "basic";
+}
 
-// 手动输入的 token
-const manualToken = ref("");
+/**
+ * scheme 在请求中的位置说明
+ */
+function schemeLocation(item: SchemeItem): string {
+  if (item.scheme.type === "apiKey") {
+    return `${item.scheme.in || "header"} · ${item.scheme.name || item.name}`;
+  }
+  if (item.scheme.type === "http") {
+    return `http · ${item.scheme.scheme || "bearer"}`;
+  }
+  return item.scheme.type;
+}
 
-const loading = ref(false);
-const errorMsg = ref("");
+/**
+ * 输入框提示语
+ */
+function placeholder(item: SchemeItem): string {
+  if (item.scheme.type === "apiKey" && item.scheme.in === "header") {
+    return item.scheme.scheme?.toLowerCase() === "bearer" ? "粘贴 token，发送时自动补 Bearer 前缀" : "Header 值";
+  }
+  if (item.scheme.type === "apiKey") {
+    return "参数值";
+  }
+  if (item.scheme.type === "http") {
+    return "访问令牌，不含 Bearer 前缀";
+  }
+  return "access_token";
+}
 
 function open() {
   visible.value = true;
-  errorMsg.value = "";
-}
-
-/** OAuth2 密码模式获取 token */
-async function fetchToken() {
-  if (!oauthForm.username || !oauthForm.password) {
-    errorMsg.value = "请输入用户名和密码";
-    return;
-  }
-  loading.value = true;
-  errorMsg.value = "";
-  try {
-    // OAuth2 password grant 请求
-    const params = new URLSearchParams();
-    params.append("grant_type", "password");
-    params.append("username", oauthForm.username);
-    params.append("password", oauthForm.password);
-
-    const res = await axios.post(oauthForm.tokenUrl, params, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        // 客户端凭证通过 Basic 认证传递
-        Authorization: "Basic " + btoa(`${oauthForm.clientId}:${oauthForm.clientSecret}`),
-      },
-      validateStatus: () => true,
-    });
-
-    if (res.data?.access_token) {
-      setToken(res.data.access_token);
-      visible.value = false;
+  for (const item of schemeList.value) {
+    const saved = authValues.value[item.name] || "";
+    if (isBasic(item)) {
+      const index = saved.indexOf(":");
+      basicUsers[item.name] = index >= 0 ? saved.slice(0, index) : saved;
+      basicPasswords[item.name] = index >= 0 ? saved.slice(index + 1) : "";
     } else {
-      errorMsg.value = res.data?.error_description || res.data?.error || JSON.stringify(res.data);
+      values[item.name] = saved;
     }
-  } catch (e: any) {
-    errorMsg.value = e.message || "获取 token 失败";
-  } finally {
-    loading.value = false;
   }
 }
 
-/** 手动设置 token */
-function applyManualToken() {
-  if (!manualToken.value.trim()) {
-    errorMsg.value = "请输入 token";
-    return;
+function save() {
+  for (const item of schemeList.value) {
+    let value = values[item.name] || "";
+    if (isBasic(item)) {
+      const user = basicUsers[item.name] || "";
+      const password = basicPasswords[item.name] || "";
+      value = user || password ? `${user}:${password}` : "";
+    }
+    setAuthValue(item.name, value.trim());
   }
-  setToken(manualToken.value.trim());
   visible.value = false;
+}
+
+function clearAll() {
+  clearAuthValues();
+  for (const item of schemeList.value) {
+    values[item.name] = "";
+    basicUsers[item.name] = "";
+    basicPasswords[item.name] = "";
+  }
 }
 
 defineExpose({ open });
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="Authorization" width="500px" :close-on-click-modal="false">
-    <!-- 模式切换 -->
-    <el-radio-group v-model="mode" class="mode-switch">
-      <el-radio-button value="oauth2">OAuth2 密码模式</el-radio-button>
-      <el-radio-button value="manual">手动输入 Token</el-radio-button>
-    </el-radio-group>
+  <el-dialog v-model="visible" title="全局授权" width="560px" :close-on-click-modal="false">
+    <p class="auth-dialog-tip">凭据保存在本机浏览器，调试时按接口声明的安全方案自动附加到请求头或查询参数。</p>
+    <el-empty v-if="!schemeList.length" description="文档未声明 securitySchemes" :image-size="60" />
 
-    <!-- OAuth2 密码模式 -->
-    <el-form v-if="mode === 'oauth2'" label-width="100px" class="oauth-form" @submit.prevent="fetchToken">
-      <el-form-item label="Token URL">
-        <el-input v-model="oauthForm.tokenUrl" size="small" placeholder="/auth/oauth2/token" />
-      </el-form-item>
-      <el-form-item label="Client ID">
-        <el-input v-model="oauthForm.clientId" size="small" />
-      </el-form-item>
-      <el-form-item label="Client Secret">
-        <el-input v-model="oauthForm.clientSecret" size="small" show-password />
-      </el-form-item>
-      <el-form-item label="用户名">
-        <el-input v-model="oauthForm.username" size="small" />
-      </el-form-item>
-      <el-form-item label="密码">
-        <el-input v-model="oauthForm.password" size="small" type="password" show-password @keyup.enter="fetchToken" />
-      </el-form-item>
-    </el-form>
+    <div v-for="item in schemeList" :key="item.name" class="scheme">
+      <div class="scheme-head">
+        <span class="scheme-name">{{ item.name }}</span>
+        <span class="scheme-loc">{{ schemeLocation(item) }}</span>
+      </div>
+      <div v-if="item.scheme.description" class="scheme-desc">{{ item.scheme.description }}</div>
 
-    <!-- 手动输入 -->
-    <div v-else class="manual-form">
+      <template v-if="isBasic(item)">
+        <el-input v-model="basicUsers[item.name]" size="default" placeholder="用户名" class="scheme-input" />
+        <el-input
+          v-model="basicPasswords[item.name]"
+          size="default"
+          type="password"
+          show-password
+          placeholder="密码"
+          class="scheme-input"
+        />
+      </template>
       <el-input
-        v-model="manualToken"
-        type="textarea"
-        :rows="4"
-        placeholder="粘贴 Bearer Token..."
-        @keyup.ctrl.enter="applyManualToken"
+        v-else
+        v-model="values[item.name]"
+        size="default"
+        :placeholder="placeholder(item)"
+        class="scheme-input"
+        clearable
       />
-      <div class="manual-tip">Ctrl+Enter 快速应用</div>
     </div>
 
-    <el-alert v-if="errorMsg" :title="errorMsg" type="error" show-icon :closable="false" class="error-alert" />
-
     <template #footer>
+      <el-button text type="danger" @click="clearAll">清除全部</el-button>
       <el-button @click="visible = false">取消</el-button>
-      <el-button v-if="mode === 'oauth2'" type="primary" :loading="loading" @click="fetchToken">获取 Token</el-button>
-      <el-button v-else type="primary" @click="applyManualToken">应用</el-button>
+      <el-button type="primary" @click="save">保存</el-button>
     </template>
   </el-dialog>
 </template>
 
 <style scoped>
-.mode-switch { margin-bottom: 20px; }
-.oauth-form { padding-right: 20px; }
-.manual-form { padding: 10px 0; }
-.manual-tip { font-size: 12px; color: #909399; margin-top: 6px; }
-.error-alert { margin-top: 12px; }
+.auth-dialog-tip {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--yl-text-tertiary);
+}
+.scheme {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--yl-border);
+}
+.scheme:last-child {
+  border-bottom: none;
+}
+.scheme-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.scheme-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--yl-text);
+}
+.scheme-loc {
+  font-size: 12px;
+  color: var(--yl-text-tertiary);
+  font-family: "Consolas", "Monaco", monospace;
+}
+.scheme-desc {
+  font-size: 12px;
+  color: var(--yl-text-tertiary);
+  margin-bottom: 8px;
+}
+.scheme-input {
+  margin-bottom: 8px;
+}
 </style>

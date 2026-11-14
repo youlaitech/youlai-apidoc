@@ -42,7 +42,9 @@ export function highlightJson(raw: string): string {
   );
 }
 
-/** HTML 转义 */
+/**
+ * HTML 转义
+ */
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
