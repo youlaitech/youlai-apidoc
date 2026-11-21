@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>tech.youlai</groupId>
+        <artifactId>apidoc4j-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <!-- 单体应用 Starter：引入后自动注册文档 UI + 跳转控制器 -->
+    <artifactId>apidoc4j-spring-boot-starter</artifactId>
+
+    <name>apidoc4j-spring-boot-starter</name>
+    <description>apidoc4j 单体应用 Starter — Spring Boot 4 / Jakarta WebMvc</description>
+    <url>https://github.com/youlaitech/youlai-apidoc</url>
+
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>youlai</name>
+            <email>youlaitech@163.com</email>
+            <url>https://www.youlai.tech</url>
+            <organization>youlai</organization>
+            <organizationUrl>https://www.youlai.tech</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/youlaitech/youlai-apidoc</url>
+        <connection>scm:git:https://github.com/youlaitech/youlai-apidoc.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apidoc.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
+    <dependencies>
+        <!-- 核心模块：前端静态资源 + 配置属性 + 工具类 -->
+        <dependency>
+            <groupId>tech.youlai</groupId>
+            <artifactId>apidoc4j-core</artifactId>
+        </dependency>
+        <!-- Spring Boot WebMvc（自动配置需要 ConditionalOnWebApplication） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring-boot.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- SpringDoc OpenAPI WebMvc — 提供 /v3/api-docs 端点 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+</project>

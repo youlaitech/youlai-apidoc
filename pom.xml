@@ -6,18 +6,18 @@
 
     <!-- 父项目：统一管理子模块构建和发布配置 -->
     <groupId>tech.youlai</groupId>
-    <artifactId>apilens-parent</artifactId>
-    <version>1.0.0</version>
+    <artifactId>apidoc4j-parent</artifactId>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
 
-    <name>apilens-parent</name>
+    <name>apidoc4j-parent</name>
     <description>OpenAPI 3 接口文档 UI — knife4j 替代方案，基于 SpringDoc + Vue3 自建</description>
-    <url>https://github.com/youlaitech/youlai-apilens</url>
+    <url>https://github.com/youlaitech/youlai-apidoc</url>
 
     <licenses>
         <license>
             <name>Apache License 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
 
@@ -26,20 +26,23 @@
             <name>youlai</name>
             <email>youlaitech@163.com</email>
             <url>https://www.youlai.tech</url>
+            <organization>youlai</organization>
+            <organizationUrl>https://www.youlai.tech</organizationUrl>
         </developer>
     </developers>
 
     <scm>
-        <url>https://github.com/youlaitech/youlai-apilens</url>
-        <connection>scm:git:git://github.com/youlaitech/youlai-apilens.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apilens.git</developerConnection>
+        <url>https://github.com/youlaitech/youlai-apidoc</url>
+        <connection>scm:git:https://github.com/youlaitech/youlai-apidoc.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apidoc.git</developerConnection>
+        <tag>HEAD</tag>
     </scm>
 
     <modules>
-        <module>apilens-dependencies</module>
-        <module>apilens-core</module>
-        <module>apilens-spring-boot-starter</module>
-        <module>apilens-gateway-spring-boot-starter</module>
+        <module>apidoc4j-dependencies</module>
+        <module>apidoc4j-core</module>
+        <module>apidoc4j-spring-boot-starter</module>
+        <module>apidoc4j-gateway-spring-boot-starter</module>
     </modules>
 
     <!-- 子模块依赖版本统一由 BOM 解析 -->
@@ -47,7 +50,7 @@
         <dependencies>
             <dependency>
                 <groupId>tech.youlai</groupId>
-                <artifactId>apilens-dependencies</artifactId>
+                <artifactId>apidoc4j-dependencies</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
@@ -61,8 +64,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <spring-boot.version>4.0.5</spring-boot.version>
-        <spring-cloud.version>2025.0.0</spring-cloud.version>
-        <springdoc.version>2.8.9</springdoc.version>
         <lombok.version>1.18.36</lombok.version>
     </properties>
 
@@ -105,11 +106,11 @@
             <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.7.0</version>
+                <version>0.11.0</version>
                 <extensions>true</extensions>
                 <configuration>
                     <publishingServerId>central</publishingServerId>
-                    <autoPublish>true</autoPublish>
+                    <autoPublish>false</autoPublish>
                 </configuration>
             </plugin>
             <!-- GPG 签名 -->

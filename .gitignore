@@ -13,8 +13,11 @@ target/
 .settings/
 
 # Frontend
-apilens-core/frontend/node_modules/
-apilens-core/frontend/dist/
+apidoc4j-core/frontend/node_modules/
+apidoc4j-core/frontend/dist/
+
+# Logs
+*.log
 
 # OS
 .DS_Store
