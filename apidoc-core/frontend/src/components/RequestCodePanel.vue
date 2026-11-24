@@ -2,8 +2,8 @@
 /**
  * 请求代码面板：语言页签 + 代码块 + 复制
  *
- * 文档视图「请求示例」与调试抽屉「实际请求」共用；
- * 语言选择写入 localStorage，两处及下次打开保持一致。
+ * 文档视图「请求示例」与调试抽屉「实际请求」共用，语言选择写入 localStorage
+ * 供下次打开沿用
  */
 import { computed, ref, watch } from "vue";
 import { CODE_LANGS, generateCode, isCodeLang, type CodeLang } from "../utils/codegen";
