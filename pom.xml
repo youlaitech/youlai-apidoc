@@ -6,11 +6,11 @@
 
     <!-- 父项目：统一管理子模块构建和发布配置 -->
     <groupId>tech.youlai</groupId>
-    <artifactId>apidoc4j-parent</artifactId>
-    <version>0.1.0</version>
+    <artifactId>apidoc-parent</artifactId>
+    <version>0.3.1</version>
     <packaging>pom</packaging>
 
-    <name>apidoc4j-parent</name>
+    <name>apidoc-parent</name>
     <description>OpenAPI 3 接口文档 UI — knife4j 替代方案，基于 SpringDoc + Vue3 自建</description>
     <url>https://github.com/youlaitech/youlai-apidoc</url>
 
@@ -39,10 +39,10 @@
     </scm>
 
     <modules>
-        <module>apidoc4j-dependencies</module>
-        <module>apidoc4j-core</module>
-        <module>apidoc4j-spring-boot-starter</module>
-        <module>apidoc4j-gateway-spring-boot-starter</module>
+        <module>apidoc-dependencies</module>
+        <module>apidoc-core</module>
+        <module>apidoc-spring-boot-starter</module>
+        <module>apidoc-gateway-spring-boot-starter</module>
     </modules>
 
     <!-- 子模块依赖版本统一由 BOM 解析 -->
@@ -50,10 +50,21 @@
         <dependencies>
             <dependency>
                 <groupId>tech.youlai</groupId>
-                <artifactId>apidoc4j-dependencies</artifactId>
+                <artifactId>apidoc-dependencies</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <!-- SpringDoc：仅用于本项目模块构建，不放进面向使用方的 BOM -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+                <version>${springdoc.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -64,6 +75,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <spring-boot.version>4.0.5</spring-boot.version>
+        <springdoc.version>3.1.1</springdoc.version>
         <lombok.version>1.18.36</lombok.version>
     </properties>
 
