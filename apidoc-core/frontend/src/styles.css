@@ -307,6 +307,28 @@ b, strong { font-variant-numeric: tabular-nums; }
 .ad-method--options, .ad-method--head, .ad-method--trace { color: var(--ad-method-other-text); background: var(--ad-other-bg); }
 .ad-method--lg { min-width: 56px; height: 28px; font-size: 12px; border-radius: 6px; }
 
+/* 下划线页签（调试抽屉分区 / 请求代码语言）：容器需自带 border-bottom，激活线压在边框上 */
+.ad-tabs { display: flex; align-items: stretch; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.ad-tabs::-webkit-scrollbar { display: none; }
+.ad-tab {
+  position: relative; flex-shrink: 0; display: inline-flex; align-items: center;
+  height: 40px; margin-bottom: -1px; padding: 0 10px;
+  font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-text-secondary);
+  white-space: nowrap; background: transparent; border: none; cursor: pointer;
+  box-shadow: inset 0 0 0 transparent;
+  transition: color var(--ad-duration), box-shadow var(--ad-duration);
+}
+.ad-tab:hover { color: var(--ad-text); }
+.ad-tab.active { color: var(--ad-primary); font-weight: 600; box-shadow: inset 0 -2px 0 var(--ad-primary); }
+.ad-tab-badge {
+  min-width: 16px; height: 16px; margin-left: 6px; padding: 0 5px;
+  font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums;
+  color: var(--ad-text-tertiary); background: var(--ad-bg-inset); border-radius: var(--ad-radius-pill);
+}
+.ad-tab-badge.is-warn { color: var(--ad-warning-text); background: var(--ad-warning-bg); }
+.ad-tab-dot { width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--ad-warning); }
+.ad-tab-dot.is-on { background: var(--ad-success); }
+
 /* JSON 高亮 */
 .json-highlight .json-key { color: var(--ad-json-key); }
 .json-highlight .json-string { color: var(--ad-json-string); }

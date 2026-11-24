@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 全局设置弹窗：授权、全局请求头、基础设置。
- * 授权凭据默认存 sessionStorage，勾选记住授权后存 localStorage。
+ * 授权凭据默认记住，取消勾选后仅保留在当前标签页。
  */
 import { ref, reactive, computed, watch, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -44,6 +44,7 @@ function switchMode(mode: AuthMode) {
   authMode.value = mode;
   // 切回获取段时预载验证码，省一次点击
   if (mode === "fetch") ensureCaptchas();
+  if (mode === "fetch") nextTick(() => usernameInputRef.value?.focus());
 }
 
 /* ===================== 授权 ===================== */
@@ -195,13 +196,18 @@ function resetTf(item: SchemeItem) {
   if (tfConfig(item).captcha.enabled) loadCaptcha(item);
   ElMessage.success("已按当前文档恢复默认配置");
 }
-async function toggleAdvanced(item: SchemeItem) {
-  tfAdvOpen[item.name] = !tfAdvOpen[item.name];
+async function openAdvanced(item: SchemeItem) {
+  tfAdvOpen[item.name] = true;
+  // 展开后滚动到可见位置，避免用户以为没有内容
+  await nextTick();
+  advPanelRef.value?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+function toggleAdvanced(item: SchemeItem) {
   if (tfAdvOpen[item.name]) {
-    // 展开后滚动到可见位置，避免用户以为没有内容
-    await nextTick();
-    advPanelRef.value?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    tfAdvOpen[item.name] = false;
+    return;
   }
+  openAdvanced(item);
 }
 
 /* ---------- 图形验证码（端点与参数字段可配置，提交后自动刷新） ---------- */
@@ -422,7 +428,10 @@ function open(target: Tab = "auth") {
   authMode.value = primaryItem.value && !authValues.value[primaryItem.value.name] ? "fetch" : "manual";
   visible.value = true;
   // 打开授权页时刷新一张验证码，避免展示上次已失效的图
-  if (target === "auth" && authMode.value === "fetch") ensureCaptchas(true);
+  if (target === "auth" && authMode.value === "fetch") {
+    ensureCaptchas(true);
+    nextTick(() => usernameInputRef.value?.focus());
+  }
 }
 
 defineExpose({ open });
@@ -446,60 +455,71 @@ defineExpose({ open });
 
     <!-- 授权：一键获取 / 手动填写 两段互斥切换 -->
     <div v-show="tab === 'auth'" class="gs-pane">
-      <p class="gs-tip">凭据默认仅保留在当前标签页，发送时按接口授权声明自动附加。</p>
-      <div class="gs-remember">
-        <el-checkbox :model-value="rememberAuth" @change="onRememberAuthChange">在此浏览器记住授权</el-checkbox>
-        <span>未勾选时关闭标签页即清除</span>
-      </div>
       <div v-if="!schemeList.length" class="gs-empty">
         <el-icon><InfoFilled /></el-icon>
         <span>当前文档未声明 securitySchemes，无需授权。</span>
       </div>
 
       <template v-else>
-        <div v-if="primaryItem" class="auth-seg">
-          <button :class="{ active: authMode === 'fetch' }" @click="switchMode('fetch')">
-            <el-icon><Key /></el-icon>一键获取
-          </button>
-          <button :class="{ active: authMode === 'manual' }" @click="switchMode('manual')">
-            <el-icon><EditPen /></el-icon>手动填写
-          </button>
+        <div class="gs-auth-controls">
+          <div v-if="primaryItem" class="auth-seg">
+            <button :class="{ active: authMode === 'fetch' }" @click="switchMode('fetch')">
+              <el-icon><Key /></el-icon>一键获取
+            </button>
+            <button :class="{ active: authMode === 'manual' }" @click="switchMode('manual')">
+              <el-icon><EditPen /></el-icon>手动填写
+            </button>
+          </div>
+          <el-checkbox :model-value="rememberAuth" @change="onRememberAuthChange">记住授权</el-checkbox>
         </div>
 
         <!-- 一键获取：bearer 类方案共用，成功后写入全部目标 -->
         <div v-if="primaryItem && authMode === 'fetch'" class="tf-fetch">
-          <p v-if="fetchTargets.length > 1" class="tf-note">成功后同时写入 {{ fetchTargets.join("、") }}；也可切到「手动填写」按方案粘贴。</p>
+          <div class="tf-endpoint-summary">
+            <el-icon><Link /></el-icon>
+            <span>登录接口</span>
+            <code :class="{ 'is-missing': !tfConfig(tfItem).endpoint.trim() }">{{ tfConfig(tfItem).method }} {{ tfConfig(tfItem).endpoint || "未配置" }}</code>
+            <button class="tf-endpoint-edit" @click="openAdvanced(tfItem)">修改</button>
+          </div>
           <div class="tf-cred">
-            <el-input
-              ref="usernameInputRef"
-              v-model="credRow(tfItem, 'username').value"
-              :class="{ 'is-invalid': credInvalid.username }"
-              placeholder="用户名，如 admin"
-              autocomplete="username"
-              aria-required="true"
-              :aria-invalid="credInvalid.username"
-              @input="onCredInput('username')"
-              @keyup.enter="fetchNow(tfItem)"
-            />
-            <el-input
-              ref="passwordInputRef"
-              v-model="credRow(tfItem, 'password').value"
-              :class="{ 'is-invalid': credInvalid.password }"
-              type="password"
-              show-password
-              placeholder="密码"
-              autocomplete="current-password"
-              aria-required="true"
-              :aria-invalid="credInvalid.password"
-              @input="onCredInput('password')"
-              @keyup.enter="fetchNow(tfItem)"
-            />
+            <label class="tf-field">
+              <span class="tf-field-label">用户名</span>
+              <el-input
+                ref="usernameInputRef"
+                v-model="credRow(tfItem, 'username').value"
+                :class="{ 'is-invalid': credInvalid.username }"
+                placeholder="请输入用户名"
+                autocomplete="username"
+                aria-required="true"
+                :aria-invalid="credInvalid.username"
+                @input="onCredInput('username')"
+                @keyup.enter="fetchNow(tfItem)"
+              />
+            </label>
+            <label class="tf-field">
+              <span class="tf-field-label">密码</span>
+              <el-input
+                ref="passwordInputRef"
+                v-model="credRow(tfItem, 'password').value"
+                :class="{ 'is-invalid': credInvalid.password }"
+                type="password"
+                show-password
+                placeholder="请输入密码"
+                autocomplete="current-password"
+                aria-required="true"
+                :aria-invalid="credInvalid.password"
+                @input="onCredInput('password')"
+                @keyup.enter="fetchNow(tfItem)"
+              />
+            </label>
+          </div>
+          <div v-if="!tfConfig(tfItem).endpoint.trim()" class="tf-endpoint-tip">
+            <el-icon><InfoFilled /></el-icon>请填写登录地址。
           </div>
           <div v-if="!tfConfig(tfItem).captcha.enabled" class="tf-captcha-entry">
             <button class="tf-captcha-toggle" title="系统登录使用图形验证码时开启，开启后需填写验证码才能获取令牌" @click="enableCaptcha(tfItem)">
-              <el-icon><Picture /></el-icon>填写验证码
+              <el-icon><Picture /></el-icon>需要验证码？点击填写
             </button>
-            <span>系统登录使用图形验证码时开启</span>
           </div>
           <div v-if="tfConfig(tfItem).captcha.enabled" class="tf-captcha-row">
             <button
@@ -559,9 +579,8 @@ defineExpose({ open });
             <span>{{ tfStatus[tfItem.name]?.text }}</span>
           </p>
           <div class="tf-adv-bar">
-            <button class="tf-toggle" @click="toggleAdvanced(tfItem)">
-              <el-icon><Setting /></el-icon>
-              {{ tfAdvOpen[tfItem.name] ? "收起高级设置" : "高级设置" }}
+            <button class="tf-toggle" :aria-expanded="!!tfAdvOpen[tfItem.name]" aria-controls="tf-advanced-panel" @click="toggleAdvanced(tfItem)">
+              {{ tfAdvOpen[tfItem.name] ? "收起更多设置" : "更多设置" }}
               <el-icon class="chev" :class="{ open: tfAdvOpen[tfItem.name] }"><ArrowDown /></el-icon>
             </button>
           </div>
@@ -594,10 +613,10 @@ defineExpose({ open });
         </div>
 
         <!-- 高级设置：获取段的自定义面板，展开后滚动到可见位置 -->
-        <div v-if="primaryItem && authMode === 'fetch'" v-show="tfAdvOpen[tfItem.name]" ref="advPanelRef" class="tf-panel">
-          <p class="tf-adv-tip">配置由 OpenAPI 文档自动推导，与实际接口不符时可在此调整。</p>
+        <div id="tf-advanced-panel" v-if="primaryItem && authMode === 'fetch'" v-show="tfAdvOpen[tfItem.name]" ref="advPanelRef" class="tf-panel">
+          <p class="tf-adv-tip">默认配置通常无需修改。</p>
           <div class="tf-grid">
-            <label class="tf-label">令牌端点</label>
+            <label class="tf-label">登录地址</label>
             <el-input class="cfg-span" v-model="tfConfig(tfItem).endpoint" placeholder="如 /login 或 /oauth/token" @change="persistTf(tfItem)" />
             <label class="tf-label">请求方式</label>
             <el-select v-model="tfConfig(tfItem).method" @change="persistTf(tfItem)">
@@ -721,7 +740,9 @@ defineExpose({ open });
 :global(.gs-dialog .el-dialog__body) { max-height: 64vh; overflow-y: auto; }
 
 /* 授权段切换：一键获取 / 手动填写 */
-.auth-seg { display: inline-flex; gap: 3px; padding: 3px; margin-bottom: 12px; background: var(--ad-bg-subtle); border-radius: var(--ad-radius); }
+.gs-auth-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.gs-auth-controls :deep(.el-checkbox) { flex-shrink: 0; height: 30px; }
+.auth-seg { display: inline-flex; gap: 3px; padding: 3px; background: var(--ad-bg-subtle); border-radius: var(--ad-radius); }
 .auth-seg button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-text-secondary); background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background var(--ad-duration), color var(--ad-duration); }
 .auth-seg button:hover { color: var(--ad-text); }
 .auth-seg button.active { color: var(--ad-primary); background: var(--ad-bg); box-shadow: var(--ad-shadow-sm); font-weight: 600; }
@@ -732,8 +753,7 @@ defineExpose({ open });
 .gs-tabs button.active { color: var(--ad-primary); background: var(--ad-bg); box-shadow: var(--ad-shadow-sm); font-weight: 600; }
 .gs-tab-n { font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ad-on-primary); background: var(--ad-primary); border-radius: var(--ad-radius-pill); padding: 0 6px; line-height: 15px; }
 .gs-pane { min-height: 160px; }
-.gs-tip { margin: 0 0 8px; font-size: var(--ad-fs-aux); line-height: 1.7; color: var(--ad-text-tertiary); }
-.gs-remember { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); }
+.gs-tip { margin: 0; font-size: var(--ad-fs-aux); line-height: 1.7; color: var(--ad-text-tertiary); }
 .gs-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 36px 0; font-size: var(--ad-fs-secondary); color: var(--ad-text-tertiary); }
 .gs-empty.small { padding: 20px 0; }
 .gs-pane-foot { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ad-border-soft); }
@@ -755,8 +775,16 @@ defineExpose({ open });
 .scheme-input:last-child { margin-bottom: 0; }
 
 /* 一键获取令牌：主流程 */
-.tf-note { margin: 0 0 10px; font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); line-height: 1.6; }
-.tf-cred { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.tf-endpoint-summary { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; font-size: var(--ad-fs-aux); color: var(--ad-text-secondary); }
+.tf-endpoint-summary .el-icon { color: var(--ad-text-tertiary); }
+.tf-endpoint-summary code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--ad-font-mono); color: var(--ad-text); }
+.tf-endpoint-summary code.is-missing { color: var(--ad-warning-text); }
+.tf-endpoint-edit { flex-shrink: 0; margin-left: auto; padding: 2px 0; font-size: var(--ad-fs-aux); color: var(--ad-primary); background: transparent; border: none; cursor: pointer; }
+.tf-endpoint-edit:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tf-endpoint-tip { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 8px 10px; font-size: var(--ad-fs-aux); line-height: 1.5; color: var(--ad-warning-text); background: var(--ad-warning-bg); border-radius: var(--ad-radius); }
+.tf-cred { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 10px; }
+.tf-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tf-field-label { font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-text-secondary); }
 .tf-cred .el-input.is-invalid :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px var(--ad-danger) inset; }
 /* 获取令牌 = 品牌时刻：渐变 + 品牌投影 + hover 上浮 1px */
 .tf-submit { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin-top: 2px; font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-on-primary); background: var(--ad-primary-grad); border: none; border-radius: var(--ad-radius); cursor: pointer; box-shadow: var(--ad-brand-shadow); transition: box-shadow var(--ad-duration), transform var(--ad-duration), opacity var(--ad-duration); }
@@ -765,19 +793,18 @@ defineExpose({ open });
 .tf-submit:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: none; }
 .tf-submit .spin { animation: tf-spin 0.9s linear infinite; }
 @keyframes tf-spin { to { transform: rotate(360deg); } }
-.tf-status { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 0; font-size: var(--ad-fs-aux); line-height: 1.6; }
-.tf-status .el-icon { margin-top: 2px; flex-shrink: 0; }
-.tf-status.is-success { color: var(--ad-success-text); }
-.tf-status.is-error { color: var(--ad-danger-text); }
-.tf-adv-bar { display: flex; justify-content: flex-end; gap: 2px; margin-top: 6px; }
-.tf-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-text-secondary); background: transparent; border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
-.tf-toggle:hover { color: var(--ad-primary); background: var(--ad-hover); }
+.tf-status { display: flex; align-items: flex-start; gap: 7px; margin: 10px 0 0; padding: 9px 11px; font-size: var(--ad-fs-aux); line-height: 1.6; border: 1px solid var(--ad-border-soft); border-radius: var(--ad-radius); }
+.tf-status .el-icon { margin-top: 1px; flex-shrink: 0; }
+.tf-status.is-success { color: var(--ad-success-text); background: var(--ad-success-bg); border-color: color-mix(in srgb, var(--ad-success) 24%, transparent); }
+.tf-status.is-error { color: var(--ad-danger-text); background: var(--ad-danger-bg); border-color: color-mix(in srgb, var(--ad-danger) 24%, transparent); }
+.tf-adv-bar { display: flex; justify-content: flex-start; margin-top: 8px; }
+.tf-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 2px; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-text-tertiary); background: transparent; border: none; cursor: pointer; transition: color var(--ad-duration); }
+.tf-toggle:hover { color: var(--ad-primary); }
 .tf-toggle .chev { transition: transform var(--ad-duration); }
 .tf-toggle .chev.open { transform: rotate(180deg); }
 
-/* 验证码入口：虚线边框 + 主色浅底，明确是可点按钮而非提示文本 */
-.tf-captcha-entry { display: flex; align-items: center; gap: 8px; margin: -2px 0 10px; }
-.tf-captcha-entry span { font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); }
+/* 验证码入口：明确的按钮形态，避免用户忽略可点击区域 */
+.tf-captcha-entry { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
 .tf-captcha-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-primary); background: var(--ad-primary-soft); border: 1px dashed color-mix(in srgb, var(--ad-primary) 50%, transparent); border-radius: var(--ad-radius); cursor: pointer; transition: background var(--ad-duration), border-color var(--ad-duration); }
 .tf-captcha-toggle:hover { background: color-mix(in srgb, var(--ad-primary) 16%, transparent); border-color: var(--ad-primary); }
 
@@ -822,13 +849,20 @@ defineExpose({ open });
 .hdr-col-act { width: 64px; flex-shrink: 0; display: flex; justify-content: flex-end; }
 .hdr-add { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--ad-border-soft); }
 
-/* 基础设置 */
-.base-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-.base-field { padding: 6px 0 18px; }
+/* 基础设置：每项独立成行，标签、说明与控件形成完整阅读顺序 */
+.base-grid { display: flex; flex-direction: column; gap: 20px; }
+.base-field { padding: 0; }
 .base-field:last-child { padding-bottom: 0; }
 .base-label { display: block; font-size: var(--ad-fs-secondary); font-weight: 600; color: var(--ad-text); margin-bottom: 5px; }
 .base-hint { margin: 0 0 10px; font-size: var(--ad-fs-aux); line-height: 1.6; color: var(--ad-text-tertiary); }
 .theme-seg { display: inline-flex; gap: 3px; padding: 3px; background: var(--ad-bg-subtle); border-radius: var(--ad-radius); }
 .theme-seg button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 18px; font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-text-secondary); background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background var(--ad-duration), color var(--ad-duration); }
 .theme-seg button.active { color: var(--ad-primary); background: var(--ad-bg); box-shadow: var(--ad-shadow-sm); font-weight: 600; }
+
+@media (max-width: 640px) {
+  .gs-auth-controls { align-items: flex-start; }
+  .gs-auth-controls :deep(.el-checkbox) { height: 24px; }
+  .tf-grid { grid-template-columns: 80px 1fr; }
+  .tf-grid .cfg-span { grid-column: 2; }
+}
 </style>

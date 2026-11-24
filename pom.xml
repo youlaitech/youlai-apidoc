@@ -7,7 +7,7 @@
     <!-- 父项目：统一管理子模块构建和发布配置 -->
     <groupId>tech.youlai</groupId>
     <artifactId>apidoc-parent</artifactId>
-    <version>0.3.1</version>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
 
     <name>apidoc-parent</name>

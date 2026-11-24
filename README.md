@@ -78,9 +78,11 @@ mvn clean verify
 
 Maven Central 不允许覆盖已发布版本，发布前先按实际情况升版本：
 
+`versions:set` 只改继承父 POM 的模块，`apidoc-dependencies` 不继承父 POM，需手动改它的 `<version>`，否则父 POM 的 BOM import 解析不到新版本。
+
 ```powershell
-# 1. 升版本；若 0.3.0 已存在，换成下一个可用版本
-mvn versions:set "-DnewVersion=0.3.1" "-DgenerateBackupPoms=false"
+# 1. 升版本，取下一个未发布版本号
+mvn versions:set "-DnewVersion=0.4.0" "-DgenerateBackupPoms=false"
 
 # 2. 本地验证：测试、编译、sources、javadoc、GPG 签名
 mvn clean verify

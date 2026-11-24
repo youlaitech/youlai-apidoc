@@ -1,5 +1,5 @@
 /**
- * 全局认证信息：按 securityScheme 名称保存，默认存 sessionStorage，勾选记住后存 localStorage。
+ * 全局认证信息：按 securityScheme 名称保存，默认存 localStorage，取消记住后仅存 sessionStorage。
  */
 import { ref } from "vue";
 
@@ -9,9 +9,10 @@ const LEGACY_TOKEN_KEY = "apidoc-auth-token";
 
 function readRemember(): boolean {
   try {
-    return localStorage.getItem(REMEMBER_KEY) === "true";
+    const saved = localStorage.getItem(REMEMBER_KEY);
+    return saved === null ? true : saved === "true";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -35,13 +36,15 @@ export const rememberAuth = ref(readRemember());
 function load(): Record<string, string> {
   try {
     const localValues = parseValues(localStorage.getItem(STORAGE_KEY));
+    const sessionValues = parseValues(sessionStorage.getItem(STORAGE_KEY));
     let values: Record<string, string>;
 
     if (rememberAuth.value) {
-      values = localValues;
+      // 默认记住授权后，兼容迁移旧版仅保存在当前标签页的凭据
+      values = Object.keys(localValues).length ? localValues : sessionValues;
       sessionStorage.removeItem(STORAGE_KEY);
+      if (Object.keys(values).length) localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
     } else {
-      const sessionValues = parseValues(sessionStorage.getItem(STORAGE_KEY));
       values = sessionValues;
       if (!Object.keys(sessionValues).length && Object.keys(localValues).length) {
         values = localValues;

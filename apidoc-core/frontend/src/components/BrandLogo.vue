@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 品牌标志：优先使用 OpenAPI info.x-logo，加载失败时回退内置图标。
+ * 品牌标志：仅展示 OpenAPI info.x-logo；未配置或加载失败时隐藏，避免通用图标与标题重复。
  */
 import { computed, ref, watch } from "vue";
 import type { XLogo } from "../types/openapi";
@@ -37,15 +37,12 @@ const tileStyle = computed(() =>
 </script>
 
 <template>
-  <span class="brand-logo" :class="{ 'has-img': normalized && !imgFailed }" :style="tileStyle">
-    <img v-if="normalized && !imgFailed" :src="imgSrc" :alt="normalized.altText || 'logo'" @error="imgFailed = true" />
-    <span v-else class="brand-logo-default" aria-hidden="true" />
+  <span v-if="normalized && !imgFailed" class="brand-logo" :style="tileStyle">
+    <img :src="imgSrc" :alt="normalized.altText || 'logo'" @error="imgFailed = true" />
   </span>
 </template>
 
 <style scoped>
-.brand-logo { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--ad-radius); background: var(--ad-primary-grad); color: var(--ad-on-primary); box-shadow: var(--ad-brand-shadow); overflow: hidden; }
-.brand-logo-default { width: 18px; height: 18px; background: currentColor; -webkit-mask: url("../assets/icons/api.svg") center / contain no-repeat; mask: url("../assets/icons/api.svg") center / contain no-repeat; }
-.brand-logo.has-img { background: var(--ad-bg); box-shadow: none; border: 1px solid var(--ad-border); }
+.brand-logo { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--ad-radius); background: var(--ad-bg); box-shadow: none; border: 1px solid var(--ad-border); overflow: hidden; }
 .brand-logo img { width: 100%; height: 100%; object-fit: contain; padding: 3px; box-sizing: border-box; }
 </style>

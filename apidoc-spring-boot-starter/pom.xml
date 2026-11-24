@@ -7,7 +7,7 @@
     <parent>
         <groupId>tech.youlai</groupId>
         <artifactId>apidoc-parent</artifactId>
-        <version>0.3.1</version>
+        <version>0.4.0</version>
     </parent>
 
     <!-- 单体应用 Starter：引入后自动注册文档 UI + 跳转控制器 -->

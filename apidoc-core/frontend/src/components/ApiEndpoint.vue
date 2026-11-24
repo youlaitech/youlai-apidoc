@@ -15,8 +15,6 @@ import {
 } from "../api/openapi";
 import { highlightJson, highlightJsonWithComments } from "../utils/json-highlight";
 import { getSchemaCommentMap } from "../utils/schema-comments";
-import { generateCurl } from "../utils/curl";
-import { generateTsAxios, generateJavaRest } from "../utils/codegen";
 import { copyWithFeedback as copyText } from "../utils/copy";
 import { authValues } from "../stores/auth";
 import { activeHeaderCount, headerRecord } from "../stores/headers";
@@ -28,6 +26,7 @@ import {
   formatExample,
 } from "../utils/request";
 import SchemaView from "./SchemaView.vue";
+import RequestCodePanel from "./RequestCodePanel.vue";
 
 const DebugDrawer = defineAsyncComponent(() => import("./DebugDrawer.vue"));
 
@@ -162,31 +161,6 @@ const exampleHeaders = computed<Record<string, string>>(() => {
   }
   Object.assign(headers, authHeaders.value);
   return headers;
-});
-
-const curlText = computed(() =>
-  generateCurl({
-    method: props.method,
-    url: exampleUrl.value,
-    headers: exampleHeaders.value,
-    body: hasBody.value ? bodyExampleText.value : undefined,
-  })
-);
-
-/* ===================== 请求示例语言切换 ===================== */
-
-type ExampleLang = "curl" | "ts" | "java";
-const exampleLang = ref<ExampleLang>("curl");
-const codeText = computed(() => {
-  const opts = {
-    method: props.method,
-    url: exampleUrl.value,
-    headers: exampleHeaders.value,
-    body: hasBody.value ? bodyExampleText.value : undefined,
-  };
-  if (exampleLang.value === "ts") return generateTsAxios(opts);
-  if (exampleLang.value === "java") return generateJavaRest(opts);
-  return curlText.value;
 });
 
 /* ===================== 视图状态 ===================== */
@@ -334,24 +308,19 @@ function statusClass(code: string): string {
       </div>
     </section>
 
-    <!-- 请求示例（cURL / TypeScript / Java） -->
+    <!-- 请求示例：多语言代码面板（与调试抽屉「实际请求」共用） -->
     <section class="ep-card">
       <div class="card-head">
         <h3 class="card-title">请求示例</h3>
         <span class="ct-badge" title="由文档示例值和当前全局配置生成，不代表调试结果">文档示例</span>
-        <div class="card-head-right">
-          <div class="mini-seg">
-            <button :class="{ active: exampleLang === 'curl' }" @click="exampleLang = 'curl'">cURL</button>
-            <button :class="{ active: exampleLang === 'ts' }" @click="exampleLang = 'ts'">TypeScript</button>
-            <button :class="{ active: exampleLang === 'java' }" @click="exampleLang = 'java'">Java</button>
-          </div>
-          <button class="tool-btn" @click="copyText(codeText, '请求代码已复制')">
-            <el-icon><CopyDocument /></el-icon>复制
-          </button>
-        </div>
       </div>
-      <div class="card-body">
-        <pre class="curl-block">{{ codeText }}</pre>
+      <div class="card-body is-flush">
+        <RequestCodePanel
+          :method="method"
+          :url="exampleUrl"
+          :headers="exampleHeaders"
+          :body="hasBody ? bodyExampleText : undefined"
+        />
       </div>
     </section>
 
@@ -442,6 +411,7 @@ function statusClass(code: string): string {
 .ct-badge { font-size: var(--ad-fs-aux); font-family: var(--ad-font-mono); color: var(--ad-text-tertiary); background: var(--ad-bg-subtle); border-radius: var(--ad-radius-sm); padding: 1px 7px; }
 .card-head-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .card-body { padding: 20px; }
+.card-body.is-flush { padding: 0; }
 .card-desc { font-size: var(--ad-fs-secondary); color: var(--ad-text-tertiary); margin: 0 0 12px; line-height: 1.7; }
 
 /* 参数文档行 */
@@ -485,7 +455,6 @@ function statusClass(code: string): string {
 .tool-btn:hover { color: var(--ad-primary); background: var(--ad-hover); }
 .editor-hint { margin-left: auto; font-size: 11px; color: var(--ad-text-tertiary); }
 .editor-hint.left { margin-left: 0; margin-right: auto; }
-.curl-block { margin: 0; padding: 14px 16px; background: var(--ad-bg-code); border: 1px solid var(--ad-border-soft); border-radius: var(--ad-radius); font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); line-height: 1.7; color: var(--ad-text-secondary); white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
 .resp-pre { margin: 0; padding: 14px 16px; background: var(--ad-bg-code); border: 1px solid var(--ad-border-soft); border-radius: var(--ad-radius); font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); line-height: 1.7; color: var(--ad-text); white-space: pre-wrap; word-break: break-word; max-height: 440px; overflow: auto; }
 
 /* 响应定义 */

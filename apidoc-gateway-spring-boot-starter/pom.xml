@@ -7,7 +7,7 @@
     <parent>
         <groupId>tech.youlai</groupId>
         <artifactId>apidoc-parent</artifactId>
-        <version>0.3.1</version>
+        <version>0.4.0</version>
     </parent>
 
     <!-- 网关聚合 Starter：在 Gateway 网关上引入，聚合各微服务 OpenAPI 文档 -->

@@ -7,7 +7,7 @@
     <parent>
         <groupId>tech.youlai</groupId>
         <artifactId>apidoc-parent</artifactId>
-        <version>0.3.1</version>
+        <version>0.4.0</version>
     </parent>
 
     <!-- 核心模块：打包前端静态资源 + 配置属性 + 工具类 -->

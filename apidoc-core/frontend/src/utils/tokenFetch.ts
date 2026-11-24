@@ -1,8 +1,8 @@
 /**
  * 一键获取令牌：优先从 OpenAPI 文档推导配置，所有端点与参数均可自定义。
  *
- * - oauth2：使用 flows 中声明的 tokenUrl，按 RFC 6749 密码模式提交表单。
- * - 其他方案：从文档中识别账号密码登录接口；无法识别时留空，由使用方在高级设置中填写。
+ * - oauth2：优先使用 flows 中声明的 tokenUrl，按 RFC 6749 密码模式提交表单。
+ * - 其他方案：从文档中识别账号密码登录接口；无法识别时默认使用 /login，可在高级设置中调整。
  * - 非 oauth2 的令牌字段路径默认留空，自动识别常见响应结构，不绑定特定后端。
  *
  * 图形验证码：自动识别文档中的验证码端点与登录表单字段，也可完全手动配置。
@@ -39,6 +39,7 @@ export interface TokenFetchConfig {
 }
 
 const STORAGE_KEY = "apidoc-token-fetch-configs";
+const DEFAULT_LOGIN_ENDPOINT = "/login";
 
 /** 解析 components.schemas 内的 $ref（文档通常已 dereference，此处兜底） */
 function resolveSchema(schema: Schema | undefined, doc?: OpenAPIDocument | null): Schema | undefined {
@@ -156,14 +157,14 @@ function detectLoginEndpoint(doc?: OpenAPIDocument | null): LoginEndpointMatch |
   return best ? { endpoint: best.endpoint, contentType: best.contentType } : null;
 }
 
-/** 按认证方案与 OpenAPI 文档生成默认配置；未识别的端点留空，不作项目级假设 */
+/** 按认证方案与 OpenAPI 文档生成默认配置；无法识别端点时默认 /login */
 export function defaultTokenFetchConfig(scheme?: SecurityScheme, doc?: OpenAPIDocument | null): TokenFetchConfig {
   const oauth = scheme?.type === "oauth2";
   const tokenUrl = Object.values(scheme?.flows || {})
     .map((f) => f?.tokenUrl)
     .find(Boolean);
   const loginEndpoint = oauth ? null : detectLoginEndpoint(doc);
-  const endpoint = tokenUrl || loginEndpoint?.endpoint || "";
+  const endpoint = tokenUrl || loginEndpoint?.endpoint || DEFAULT_LOGIN_ENDPOINT;
   const captchaEndpoint = detectCaptchaEndpoint(doc);
   const loginCaptcha = detectLoginCaptcha(doc, endpoint, "POST");
   return {
@@ -237,6 +238,8 @@ export function loadTokenFetchConfig(
   return {
     ...defaults,
     ...saved,
+    // 兼容旧版本保存的空端点，统一回退到默认 /login
+    endpoint: saved.endpoint?.trim() || defaults.endpoint,
     params: Array.isArray(saved.params) ? saved.params : defaults.params,
     captcha: { ...defaults.captcha, ...(saved.captcha || {}) },
   };
@@ -355,7 +358,7 @@ export async function fetchToken(
   extraParams: TokenFetchParam[] = []
 ): Promise<string> {
   const endpoint = cfg.endpoint.trim();
-  if (!endpoint) throw new Error("未识别到令牌端点，请在高级设置中填写");
+  if (!endpoint) throw new Error("令牌端点不能为空，请在高级设置中填写");
   const url = joinUrl(endpoint, baseUrl);
   const params: Record<string, string> = {};
   for (const p of extraParams) if (p.key.trim()) params[p.key.trim()] = p.value;
