@@ -35,10 +35,15 @@ const props = defineProps<{
   path: string;
   operation: Operation;
   doc: OpenAPIDocument;
+  /** 所属分组，提供后面包屑可点击返回分组详情 */
+  group?: { tag: string; index: string; name: string } | null;
+  /** 二级分组名 */
+  subgroup?: string;
 }>();
 
 const emit = defineEmits<{
   (e: "open-settings", tab?: "auth" | "headers" | "base"): void;
+  (e: "open-group", tag: string): void;
 }>();
 
 /* ===================== 文档派生数据 ===================== */
@@ -92,6 +97,11 @@ const responses = computed(() => {
     example: getMediaTypeExample(resp.content?.["application/json"]),
   }));
 });
+
+// 全部响应都只有状态码与描述时排成两列，避免每个占一整行
+const compactResponses = computed(
+  () => responses.value.length > 1 && responses.value.every((resp) => !resp.schema && !formatExample(resp.example))
+);
 
 const hasBody = computed(() => !!requestBody.value && ["post", "put", "patch"].includes(props.method));
 
@@ -186,12 +196,14 @@ function statusClass(code: string): string {
   <div class="endpoint">
     <!-- 接口标题 -->
     <header class="ep-head">
-      <div class="ep-crumb">
-        <el-icon class="crumb-ico"><Folder /></el-icon>
-        <span>{{ operation.tags?.join(" / ") || "default" }}</span>
-      </div>
+      <button v-if="group" type="button" class="ad-back ep-back" @click="emit('open-group', group.tag)">
+        <span class="ad-back-ico"><el-icon><ArrowLeft /></el-icon></span>
+        <span class="ad-back-text">
+          <span v-if="group.index" class="ep-back-index">{{ group.index }}</span>{{ group.name }}
+        </span>
+      </button>
       <div class="ep-title-row">
-        <h2 class="ep-title">{{ operation.summary || path }}</h2>
+        <h2 class="ep-title" tabindex="-1">{{ operation.summary || path }}</h2>
         <span v-if="operation.deprecated" class="ep-deprecated">已废弃</span>
         <div class="ep-head-actions">
           <el-tooltip content="复制路径" placement="top">
@@ -201,6 +213,7 @@ function statusClass(code: string): string {
           </el-tooltip>
         </div>
       </div>
+      <p v-if="subgroup" class="ep-meta">{{ subgroup }}</p>
       <p v-if="operation.description" class="ep-desc">{{ operation.description }}</p>
     </header>
 
@@ -251,7 +264,6 @@ function statusClass(code: string): string {
                 <code class="dname">{{ p.name }}<span v-if="p.required" class="required-mark" title="必填" aria-label="必填">*</span></code>
                 <span class="dtype">{{ p.type }}</span>
                 <span v-if="p.description" class="ddesc">{{ p.description }}</span>
-                <span v-if="!p.required" class="req-tag is-optional">可选</span>
               </div>
               <div v-if="formatExample(p.example)" class="dexample">
                 <span class="dex-label">示例:</span>
@@ -285,7 +297,6 @@ function statusClass(code: string): string {
       <div class="card-head">
         <h3 class="card-title">请求体</h3>
         <span class="ct-badge">application/json</span>
-        <span v-if="requestBody?.required" class="req-tag is-required">必填</span>
         <div class="card-head-right">
           <div class="mini-seg">
             <button :class="{ active: bodyView === 'example' }" @click="bodyView = 'example'">示例</button>
@@ -329,7 +340,7 @@ function statusClass(code: string): string {
       <div class="card-head">
         <h3 class="card-title">返回响应</h3>
       </div>
-      <div class="card-body">
+      <div class="card-body" :class="{ 'is-compact': compactResponses }">
         <div v-for="resp in responses" :key="resp.code" class="doc-resp">
           <div class="doc-resp-head">
             <span class="status-pill" :class="statusClass(resp.code)">{{ resp.code }}</span>
@@ -375,10 +386,12 @@ function statusClass(code: string): string {
 
 /* 标题 */
 .ep-head { padding: 2px 2px 0; }
-.ep-crumb { display: flex; align-items: center; gap: 5px; font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); margin-bottom: 8px; }
-.crumb-ico { font-size: 13px; }
+.ep-back { margin-bottom: 16px; }
+.ep-back-index { margin-right: 5px; font-family: var(--ad-font-mono); font-size: 11px; font-weight: 600; color: var(--ad-text-tertiary); }
+.ep-meta { margin: 8px 0 0; font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); }
 .ep-title-row { display: flex; align-items: center; gap: 10px; }
 .ep-title { font-family: var(--ad-font-display); font-size: var(--ad-fs-page-title); font-weight: 600; letter-spacing: -0.02em; margin: 0; color: var(--ad-text); line-height: 1.3; }
+.ep-title:focus { outline: none; }
 .ep-deprecated { font-size: 11px; font-weight: 600; color: var(--ad-danger-text); background: var(--ad-danger-bg); border-radius: var(--ad-radius-pill); padding: 2px 10px; }
 .ep-head-actions { margin-left: auto; display: flex; gap: 4px; }
 .ep-desc { font-size: var(--ad-fs-secondary); color: var(--ad-text-secondary); margin: 10px 0 0; white-space: pre-wrap; line-height: 1.8; }
@@ -419,17 +432,15 @@ function statusClass(code: string): string {
 .pgroup:last-child { margin-bottom: 0; }
 .pgroup-title { display: flex; align-items: center; gap: 8px; font-size: var(--ad-fs-aux); font-weight: 600; color: var(--ad-text-secondary); margin-bottom: 6px; letter-spacing: 0.01em; }
 .pgroup-tip { margin: 10px 0 0; font-size: var(--ad-fs-aux); line-height: 1.6; color: var(--ad-text-tertiary); }
-.drow { padding: 12px 0; border-bottom: 1px dashed var(--ad-border-soft); }
+/* 参数行：字段 / 类型 / 说明三列对齐，示例落在说明列下方 */
+.drow { display: grid; grid-template-columns: minmax(120px, 190px) minmax(80px, 150px) minmax(0, 1fr); column-gap: 14px; row-gap: 5px; align-items: baseline; padding: 10px 0; border-bottom: 1px dashed var(--ad-border-soft); }
 .drow:last-child { border-bottom: none; }
-.dline { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.dline { display: contents; }
 .dname { font-family: var(--ad-font-mono); font-size: var(--ad-fs-secondary); font-weight: 600; color: var(--ad-put); word-break: break-all; }
 .required-mark { margin-left: 3px; color: var(--ad-danger-text); font-weight: 700; }
-.dtype { font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); }
+.dtype { font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); overflow-wrap: anywhere; }
 .ddesc { font-size: var(--ad-fs-secondary); color: var(--ad-text-secondary); line-height: 1.6; }
-.req-tag { flex-shrink: 0; margin-left: auto; font-size: 11px; font-weight: 600; border-radius: var(--ad-radius-pill); padding: 1px 8px; line-height: 15px; }
-.req-tag.is-required { color: var(--ad-warning-text); background: var(--ad-warning-bg); }
-.req-tag.is-optional { color: var(--ad-text-tertiary); background: var(--ad-bg-subtle); }
-.dexample { display: flex; align-items: baseline; gap: 7px; margin-top: 6px; }
+.dexample { grid-column: 3; display: flex; align-items: baseline; gap: 7px; }
 .dex-label { font-size: 11px; color: var(--ad-text-tertiary); flex-shrink: 0; }
 .dex-val { font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); color: var(--ad-text-secondary); background: var(--ad-bg-subtle); border-radius: var(--ad-radius-sm); padding: 1px 8px; word-break: break-all; }
 
@@ -470,12 +481,19 @@ function statusClass(code: string): string {
 .doc-resp-desc { font-size: var(--ad-fs-secondary); color: var(--ad-text-secondary); }
 .doc-resp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ad-gap); align-items: start; }
 .doc-resp-grid.single { grid-template-columns: 1fr; }
+/* 纯状态码响应：两列紧凑排布 */
+.card-body.is-compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 24px; }
+.card-body.is-compact .doc-resp { padding: 6px 0; border-bottom: none; }
+.card-body.is-compact .doc-resp-head { margin-bottom: 0; }
 .dr-col { min-width: 0; }
 .dr-col-label { font-size: var(--ad-fs-aux); font-weight: 600; letter-spacing: 0.04em; color: var(--ad-text-tertiary); margin-bottom: 7px; }
 .dr-col .resp-pre { max-height: 360px; }
 
 @media (max-width: 900px) {
   .doc-resp-grid { grid-template-columns: 1fr; }
+  .card-body.is-compact { grid-template-columns: 1fr; }
+  .drow { grid-template-columns: 1fr; }
+  .dexample { grid-column: 1; }
   .req-base { max-width: 38%; }
   .global-hint { min-width: 100%; order: 5; }
 }

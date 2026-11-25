@@ -379,7 +379,7 @@ const requestTabs = computed<TabItem[]>(() => {
   const paramCount = pathRows.value.length + queryRows.value.length;
   tabs.push({ key: "params", label: "Params", badge: paramCount || undefined });
   if (hasBody.value) {
-    tabs.push({ key: "body", label: "Body", badge: requestBody.value?.required ? "必填" : undefined });
+    tabs.push({ key: "body", label: "Body" });
   }
   const headerCount = enabledGlobals.value.length + headerRows.value.length + Object.keys(authHeaders.value).length;
   tabs.push({ key: "headers", label: "Headers", badge: headerCount || undefined });
@@ -632,7 +632,7 @@ watch(
             </button>
           </div>
 
-          <div class="dd-pane-body">
+          <div class="dd-pane-body" :class="{ 'is-editor': requestTab === 'body' }">
             <!-- Params：Path + Query -->
             <template v-if="requestTab === 'params'">
               <div v-if="pathRows.length" class="dd-group">
@@ -663,7 +663,7 @@ watch(
                     <el-icon><Delete /></el-icon>
                   </button>
                 </div>
-                <p v-if="!queryRows.length" class="dd-tip">暂无 Query 参数</p>
+                <div v-if="!queryRows.length" class="dd-empty">暂无 Query 参数</div>
                 <button
                   type="button"
                   class="dd-add"
@@ -798,8 +798,6 @@ watch(
               <span v-if="responseTime !== null" class="live-meta">{{ responseTime }} ms</span>
               <span v-if="responseSize" class="live-meta">{{ responseSize }}</span>
             </template>
-            <span v-else class="dd-resp-title">返回结果</span>
-
             <div class="dd-tabs dd-resp-tabs" role="tablist" aria-label="响应内容">
               <button
                 v-for="tab in responseTabs"
@@ -909,6 +907,9 @@ watch(
 .dd-tabs { display: flex; align-items: stretch; gap: 2px; flex-shrink: 0; padding: 0 12px; border-bottom: 1px solid var(--ad-border-soft); background: var(--ad-bg); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .dd-tabs::-webkit-scrollbar { display: none; }
 .dd-pane-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 20px 16px; background: var(--ad-bg); }
+/* Body 页签：编辑器吃满剩余高度，滚动只发生在编辑器内部 */
+.dd-pane-body.is-editor { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.dd-pane-body.is-editor .editor-toolbar { flex-shrink: 0; }
 
 /* 分隔条 */
 .dd-divider { position: relative; flex-shrink: 0; height: 7px; background: var(--ad-bg-main); border-top: 1px solid var(--ad-border-soft); border-bottom: 1px solid var(--ad-border-soft); cursor: row-resize; touch-action: none; }
@@ -921,6 +922,7 @@ watch(
 .dd-group-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; font-size: var(--ad-fs-secondary); font-weight: 600; color: var(--ad-text); }
 .dd-group-tip { font-size: 11px; font-weight: 400; color: var(--ad-text-tertiary); }
 .dd-tip { margin: 10px 0 0; font-size: var(--ad-fs-aux); line-height: 1.6; color: var(--ad-text-tertiary); }
+.dd-empty { display: flex; align-items: center; justify-content: center; height: 76px; margin-top: 8px; font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); border: 1px dashed var(--ad-border); border-radius: var(--ad-radius); }
 .ct-badge { flex-shrink: 0; font-size: var(--ad-fs-aux); font-family: var(--ad-font-mono); font-weight: 500; color: var(--ad-text-tertiary); background: var(--ad-bg-subtle); border-radius: var(--ad-radius-sm); padding: 2px 8px; }
 
 /* 鉴权 */
@@ -962,7 +964,7 @@ watch(
 
 /* ===== 响应区 ===== */
 .dd-resp-head { display: flex; align-items: center; gap: 10px; flex-shrink: 0; height: 41px; padding: 0 12px 0 20px; background: var(--ad-bg); border-bottom: 1px solid var(--ad-border-soft); }
-.dd-resp-title { flex-shrink: 0; font-size: var(--ad-fs-secondary); font-weight: 600; color: var(--ad-text); }
+
 .dd-resp-tabs { flex: 1; min-width: 0; padding: 0; border-bottom: none; background: transparent; }
 .dd-copy { flex-shrink: 0; }
 .live-status { flex-shrink: 0; font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 10px; border-radius: var(--ad-radius-pill); }

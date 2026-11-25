@@ -14,7 +14,6 @@ export interface CodeOptions {
 
 export type CodeLang =
   | "curl"
-  | "curlWindows"
   | "powershell"
   | "javascript"
   | "typescript"
@@ -26,7 +25,6 @@ export type CodeLang =
 
 export const CODE_LANGS: ReadonlyArray<{ value: CodeLang; label: string }> = [
   { value: "curl", label: "cURL" },
-  { value: "curlWindows", label: "cURL (Windows)" },
   { value: "powershell", label: "PowerShell" },
   { value: "javascript", label: "JavaScript" },
   { value: "typescript", label: "TypeScript" },
@@ -44,8 +42,6 @@ export function isCodeLang(value: string | null): value is CodeLang {
 /** 按语言分发；未知语言回退 cURL */
 export function generateCode(lang: CodeLang, opts: CodeOptions): string {
   switch (lang) {
-    case "curlWindows":
-      return generateCurlWindows(opts);
     case "powershell":
       return generatePowerShell(opts);
     case "javascript":
@@ -139,18 +135,6 @@ export function generateCurl(opts: CodeOptions): string {
   return parts.join(" \\\n");
 }
 
-/** Windows cmd cURL：双引号包裹、内部双引号转义，^ 换行 */
-function generateCurlWindows(opts: CodeOptions): string {
-  const parts: string[] = [`curl -X ${opts.method.toUpperCase()} "${escapeDouble(opts.url)}"`];
-  for (const [key, value] of Object.entries(opts.headers)) {
-    parts.push(`  -H "${escapeDouble(`${key}: ${value}`)}"`);
-  }
-  if (opts.body) {
-    parts.push(`  -d "${escapeDouble(compactBody(opts.body))}"`);
-  }
-  return parts.join(" ^\n");
-}
-
 /* ===================== PowerShell ===================== */
 
 /** Invoke-RestMethod；Content-Type 必须走 -ContentType（PS 5.1 禁止经 -Headers 传入） */
@@ -172,7 +156,7 @@ function generatePowerShell(opts: CodeOptions): string {
   if (opts.body) args.push("-Body $body");
   const contentType = contentTypeOf(opts.headers);
   if (contentType) args.push(`-ContentType '${psSingle(contentType)}'`);
-  lines.push(`$response = Invoke-RestMethod ${args.join(" ")}`, "", "$response | ConvertTo-Json -Depth 10");
+  lines.push(`$response = Invoke-RestMethod ${args.join(" ")}`, "$response | ConvertTo-Json -Depth 10");
   return lines.join("\n");
 }
 

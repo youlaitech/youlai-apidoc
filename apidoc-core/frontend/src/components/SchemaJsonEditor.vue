@@ -101,6 +101,7 @@ const schemaCommentPlugin = ViewPlugin.fromClass(
 
 const editorTheme = EditorView.theme({
   "&": {
+    height: "100%",
     backgroundColor: "var(--ad-bg-code)",
     color: "var(--ad-text)",
     border: "1px solid var(--ad-border)",
@@ -114,8 +115,6 @@ const editorTheme = EditorView.theme({
     boxShadow: "0 0 0 1px var(--ad-primary) inset, 0 0 0 3px var(--ad-primary-soft) inset",
   },
   ".cm-scroller": {
-    minHeight: "180px",
-    maxHeight: "320px",
     overflow: "auto",
     fontFamily: "var(--ad-font-mono)",
     lineHeight: "1.7",
@@ -213,5 +212,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.schema-json-editor { min-width: 0; }
+.schema-json-editor { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.schema-json-editor :deep(.cm-editor) { flex: 1; min-width: 0; }
 </style>

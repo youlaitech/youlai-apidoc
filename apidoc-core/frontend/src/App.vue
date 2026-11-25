@@ -118,7 +118,11 @@ function resetSidebarWidth() {
 
 type SelectedApi = ApiItem;
 const selectedApi = ref<SelectedApi | null>(null);
+// 首页进入的分组详情，null 表示停留在首页
+const selectedGroupTag = ref<string | null>(null);
 const mainRef = ref<HTMLElement>();
+const groupTitleRef = ref<HTMLElement>();
+const homeRef = ref<HTMLElement>();
 
 type SettingsTab = "auth" | "headers" | "base";
 interface SettingsDialogHandle {
@@ -358,6 +362,27 @@ watch(
 
 const groupedApis = computed(() => buildApiGroups(doc.value, keyword.value));
 
+// 当前分组详情；搜索过滤后分组不存在时视图回到首页
+const selectedGroup = computed(() => groupedApis.value.find((group) => group.tag === selectedGroupTag.value) || null);
+
+// 当前接口所属分组与二级分组，供接口页面包屑使用
+const currentGroup = computed(() => {
+  const api = selectedApi.value;
+  if (!api) return null;
+  return groupedApis.value.find((group) => group.apis.some((item) => item.method === api.method && item.path === api.path)) || null;
+});
+
+const currentSubgroup = computed(() => {
+  const api = selectedApi.value;
+  if (!api || !currentGroup.value) return "";
+  for (const entry of currentGroup.value.entries) {
+    if (entry.kind === "subgroup" && entry.apis.some((item) => item.method === api.method && item.path === api.path)) {
+      return entry.name;
+    }
+  }
+  return "";
+});
+
 // 全部分组是否已折叠，决定目录按钮的图标与动作
 const allGroupsCollapsed = computed(() => groupedApis.value.every((group) => collapsedTags.value.has(group.tag)));
 
@@ -445,16 +470,32 @@ function syncHash(method?: string, path?: string) {
 }
 
 /**
- * 文档加载后从 hash 恢复选中接口；接口已不存在时静默忽略
+ * 分组详情写入 hash，刷新或分享后直接回到该分组
+ *
+ * @param tag 分组标识
+ */
+function syncGroupHash(tag: string) {
+  history.replaceState(null, "", `${location.pathname}${location.search}#g=${encodeURIComponent(tag)}`);
+}
+
+/**
+ * 从 hash 恢复分组详情或选中接口；目标已不存在时静默忽略，空 hash 回到首页
  */
 function applyHash() {
-  if (!location.hash.startsWith("#m=")) return;
   const q = new URLSearchParams(location.hash.slice(1));
+  const groupTag = q.get("g");
+  if (groupTag) {
+    if (groupedApis.value.some((group) => group.tag === groupTag)) openGroup(groupTag);
+    return;
+  }
   const method = (q.get("m") || "").toLowerCase();
   const path = q.get("p") || "";
-  if (!method || !path) return;
-  const operation = (doc.value?.paths as Record<string, Record<string, Operation>>)?.[path]?.[method];
-  if (operation) selectApi(method, path, operation);
+  if (location.hash.startsWith("#m=") && method && path) {
+    const operation = (doc.value?.paths as Record<string, Record<string, Operation>>)?.[path]?.[method];
+    if (operation) selectApi(method, path, operation);
+    return;
+  }
+  goHome();
 }
 
 /* ===================== 搜索命中高亮 ===================== */
@@ -489,6 +530,7 @@ function revealActiveApi() {
 
 function selectApi(method: string, path: string, operation: Operation) {
   selectedApi.value = { method, path, operation };
+  selectedGroupTag.value = null;
   // 展开当前接口所在的分组与二级分组，避免选中后目录里看不到
   const group = groupedApis.value.find((item) => item.apis.some((api) => api.path === path && api.method === method));
   if (group) {
@@ -504,20 +546,32 @@ function selectApi(method: string, path: string, operation: Operation) {
   mainRef.value?.scrollTo({ top: 0 });
   syncHash(method, path);
   revealActiveApi();
+  nextTick(() => document.querySelector<HTMLElement>(".ep-title")?.focus({ preventScroll: true }));
   if (window.innerWidth <= 900) mobileNav.value = false;
 }
 
-function selectFirstInGroup(tag: string) {
-  const group = groupedApis.value.find((item) => item.tag === tag);
-  const first = group?.apis[0];
-  if (!group || !first) return;
-  collapsedTags.value.delete(tag);
-  for (const entry of group.entries) {
-    if (entry.kind === "subgroup" && entry.apis.includes(first)) {
-      collapsedSubgroups.value.delete(subgroupStateKey(tag, entry.name));
-    }
-  }
-  selectApi(first.method, first.path, first.operation);
+/**
+ * 进入分组详情，列出该分组全部接口
+ *
+ * @param tag 分组标识
+ */
+function openGroup(tag: string) {
+  selectedApi.value = null;
+  selectedGroupTag.value = tag;
+  syncGroupHash(tag);
+  mainRef.value?.scrollTo({ top: 0 });
+  nextTick(() => groupTitleRef.value?.focus({ preventScroll: true }));
+  if (window.innerWidth <= 900) mobileNav.value = false;
+}
+
+/**
+ * 从分组详情返回首页
+ */
+function closeGroup() {
+  selectedGroupTag.value = null;
+  syncHash();
+  mainRef.value?.scrollTo({ top: 0 });
+  nextTick(() => homeRef.value?.focus({ preventScroll: true }));
 }
 
 function isActiveApi(api: SelectedApi): boolean {
@@ -526,6 +580,7 @@ function isActiveApi(api: SelectedApi): boolean {
 
 function goHome() {
   selectedApi.value = null;
+  selectedGroupTag.value = null;
   syncHash();
   mainRef.value?.scrollTo({ top: 0 });
   if (window.innerWidth <= 900) mobileNav.value = false;
@@ -567,6 +622,7 @@ async function loadDoc() {
 
 onMounted(async () => {
   window.addEventListener("keydown", onGlobalKeydown);
+  window.addEventListener("hashchange", applyHash);
   try {
     const res = await axios.get<SwaggerConfig>("/v3/api-docs/swagger-config");
     const services = (res.data.urls ?? [])
@@ -586,6 +642,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onGlobalKeydown);
+  window.removeEventListener("hashchange", applyHash);
   stopSidebarResize();
 });
 
@@ -820,35 +877,74 @@ watch(selectedService, () => {
             :path="selectedApi.path"
             :operation="selectedApi.operation"
             :doc="doc!"
+            :group="currentGroup"
+            :subgroup="currentSubgroup"
+            @open-group="openGroup"
             @open-settings="openSettings"
           />
         </div>
 
-        <div v-else-if="!loading && !error" class="home main-inner">
+        <div v-else-if="selectedGroup" class="main-inner">
+          <div class="group-page">
+            <button type="button" class="ad-back group-back" @click="closeGroup">
+              <span class="ad-back-ico"><el-icon><ArrowLeft /></el-icon></span>
+              <span class="ad-back-text">全部分组</span>
+            </button>
+            <div class="group-page-head">
+              <h2 ref="groupTitleRef" class="group-page-title" tabindex="-1">
+                <span v-if="selectedGroup.index" class="home-group-index">{{ selectedGroup.index }}</span>{{ selectedGroup.name }}
+              </h2>
+              <span class="home-group-count">{{ selectedGroup.apis.length }}</span>
+            </div>
+            <p v-if="tagDescriptions[selectedGroup.tag]" class="group-page-desc">{{ tagDescriptions[selectedGroup.tag] }}</p>
+            <div class="group-page-list">
+              <template v-for="entry in selectedGroup.entries" :key="entry.kind === 'api' ? entry.api.method + entry.api.path : 'subgroup:' + entry.name">
+                <div v-if="entry.kind === 'subgroup'" class="group-page-subhead">
+                  <span>{{ entry.name }}</span>
+                  <span class="group-page-subcount">{{ entry.apis.length }}</span>
+                </div>
+                <button
+                  v-for="api in entry.kind === 'api' ? [entry.api] : entry.apis"
+                  :key="api.method + api.path"
+                  type="button"
+                  class="api-item"
+                  :class="{ 'is-sub': entry.kind === 'subgroup' }"
+                  :title="api.path"
+                  @click="selectApi(api.method, api.path, api.operation)"
+                >
+                  <span class="ad-method ad-method--xs" :class="'ad-method--' + api.method.toLowerCase()">{{ api.method.toUpperCase() }}</span>
+                  <span class="api-item-text">
+                    <span class="api-summary">{{ api.operation.summary || api.path }}</span>
+                    <span class="api-item-path">{{ api.path }}</span>
+                  </span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="!loading && !error" ref="homeRef" class="home main-inner" tabindex="-1">
           <div class="home-hero">
             <div class="hero-glow"></div>
+            <div class="hero-glow hero-glow--left"></div>
+
             <div class="hero-content">
-              <span class="hero-eyebrow">API 接口文档</span>
               <h2 class="home-title">{{ doc?.info?.title || "API 接口文档" }}</h2>
               <p v-if="doc?.info?.description" class="home-desc">{{ doc.info.description }}</p>
               <div class="home-stats">
                 <div class="stat"><b>{{ totalApiCount }}</b><span>接口</span></div>
                 <div class="stat"><b>{{ groupedApis.length }}</b><span>分组</span></div>
-                <div v-if="doc?.info?.version" class="stat"><b>{{ doc.info.version }}</b><span>版本</span></div>
-                <div v-if="oasVersion" class="stat"><b>{{ oasVersion }}</b><span>OpenAPI</span></div>
               </div>
             </div>
           </div>
 
           <div class="home-section-title">接口分组</div>
           <div class="home-groups">
-            <button
+            <div
               v-for="(group, i) in groupedApis"
               :key="group.tag"
               class="home-group"
               :style="{ animationDelay: Math.min(i * 0.05, 0.3) + 's' }"
-              :aria-label="`打开 ${group.name} 的第一个接口`"
-              @click="selectFirstInGroup(group.tag)"
             >
               <div class="home-group-head">
                 <span class="home-group-name">
@@ -859,12 +955,26 @@ watch(selectedService, () => {
               <div v-if="tagDescriptions[group.tag]" class="home-group-desc">{{ tagDescriptions[group.tag] }}</div>
               <ul class="home-group-list">
                 <li v-for="api in group.apis.slice(0, 4)" :key="api.method + api.path">
-                  <span class="ad-method ad-method--xs" :class="'ad-method--' + api.method.toLowerCase()">{{ api.method.toUpperCase() }}</span>
-                  <span class="preview-name">{{ api.operation.summary || api.path }}</span>
+                  <button
+                    type="button"
+                    class="home-group-item"
+                    :title="api.path"
+                    @click="selectApi(api.method, api.path, api.operation)"
+                  >
+                    <span class="ad-method ad-method--xs" :class="'ad-method--' + api.method.toLowerCase()">{{ api.method.toUpperCase() }}</span>
+                    <span class="preview-name">{{ api.operation.summary || api.path }}</span>
+                  </button>
                 </li>
               </ul>
-              <div class="home-group-more">打开第一个接口<el-icon><Right /></el-icon></div>
-            </button>
+              <button
+                v-if="group.apis.length > 4"
+                type="button"
+                class="home-group-more"
+                @click="openGroup(group.tag)"
+              >
+                查看更多<el-icon><Right /></el-icon>
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -1030,32 +1140,51 @@ watch(selectedService, () => {
 
 /* ===== 首页：欢迎头卡（浅色表面 + 全站唯一纹理时刻） ===== */
 .home-hero { position: relative; overflow: hidden; border-radius: var(--ad-radius-lg); padding: 24px 28px; margin-bottom: var(--ad-gap); background: var(--ad-bg); border: 1px solid var(--ad-border); box-shadow: var(--ad-shadow-sm); animation: ad-rise 0.4s var(--ad-ease) backwards; }
-.home-hero::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--ad-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--ad-grid-line) 1px, transparent 1px); background-size: 28px 28px; -webkit-mask-image: radial-gradient(120% 120% at 100% 0%, #000 0%, transparent 62%); mask-image: radial-gradient(120% 120% at 100% 0%, #000 0%, transparent 62%); pointer-events: none; }
+.home-hero::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--ad-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--ad-grid-line) 1px, transparent 1px); background-size: 28px 28px; -webkit-mask-image: radial-gradient(120% 120% at 100% 0%, #000 0%, transparent 62%), radial-gradient(80% 90% at 0% 100%, #000 0%, transparent 70%); mask-image: radial-gradient(120% 120% at 100% 0%, #000 0%, transparent 62%), radial-gradient(80% 90% at 0% 100%, #000 0%, transparent 70%); pointer-events: none; }
 .hero-glow { position: absolute; top: -80px; right: -60px; width: 300px; height: 300px; border-radius: 50%; background: radial-gradient(circle, var(--ad-hero-glow), transparent 68%); pointer-events: none; }
+.hero-glow--left { top: auto; right: auto; bottom: 0; left: 0; width: 340px; height: 140px; border-radius: 0; background: radial-gradient(ellipse 340px 140px at 0% 100%, color-mix(in srgb, var(--ad-primary) 22%, transparent), transparent 72%); }
+
 .hero-content { position: relative; }
-.hero-eyebrow { display: inline-block; font-size: var(--ad-fs-aux); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ad-primary); margin-bottom: 10px; }
 .home-title { font-family: var(--ad-font-display); font-size: 24px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.02em; line-height: 1.3; color: var(--ad-text); }
-.home-desc { font-size: var(--ad-fs-secondary); line-height: 1.8; color: var(--ad-text-secondary); margin: 0 0 20px; max-width: 720px; white-space: pre-wrap; }
-.home-stats { display: flex; flex-wrap: wrap; gap: 12px; }
-.stat { display: flex; align-items: baseline; gap: 8px; padding: 10px 16px; background: var(--ad-bg-subtle); border: 1px solid var(--ad-border-soft); border-radius: var(--ad-radius); }
-.stat b { font-family: var(--ad-font-display); font-size: var(--ad-fs-page-title); font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ad-text); }
+.home-desc { font-size: var(--ad-fs-secondary); line-height: 1.8; color: var(--ad-text-secondary); margin: 0 0 20px; max-width: 1000px; white-space: pre-wrap; }
+.home-stats { display: flex; flex-wrap: wrap; align-items: center; }
+.stat { display: flex; align-items: baseline; gap: 7px; padding-right: 28px; }
+.stat:last-child { padding-right: 0; }
+.stat b { font-family: var(--ad-font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ad-text); }
 .stat span { font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); }
 .home-section-title { font-size: var(--ad-fs-card-title); font-weight: 600; color: var(--ad-text); margin-bottom: 12px; letter-spacing: -0.01em; animation: ad-rise 0.4s var(--ad-ease) 0.05s backwards; }
-/* 分组卡等高：预览列表固定 4 行高度，查看全部行贴底，行内底边对齐 */
+/* 分组卡等高：预览列表固定 4 行高度；接口超过 4 个才显示快捷入口 */
 .home-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--ad-gap); }
-.home-group { display: flex; flex-direction: column; background: var(--ad-bg); border: 1px solid var(--ad-border); border-radius: var(--ad-radius-lg); padding: 20px; cursor: pointer; text-align: left; box-shadow: var(--ad-shadow-sm); transition: border-color var(--ad-duration), box-shadow var(--ad-duration), transform var(--ad-duration); animation: ad-rise 0.4s var(--ad-ease) backwards; }
-.home-group:hover { border-color: color-mix(in srgb, var(--ad-primary) 40%, transparent); box-shadow: var(--ad-shadow-hover); transform: translateY(-2px); }
+.home-group { display: flex; flex-direction: column; background: var(--ad-bg); border: 1px solid var(--ad-border); border-radius: var(--ad-radius-lg); padding: 20px; box-shadow: var(--ad-shadow-sm); transition: border-color var(--ad-duration), box-shadow var(--ad-duration); animation: ad-rise 0.4s var(--ad-ease) backwards; }
+.home-group:hover { border-color: color-mix(in srgb, var(--ad-primary) 40%, transparent); box-shadow: var(--ad-shadow-hover); }
 .home-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .home-group-name { font-size: var(--ad-fs-card-title); font-weight: 600; color: var(--ad-text); letter-spacing: -0.01em; }
 .home-group-index { margin-right: 6px; font-family: var(--ad-font-mono); font-size: var(--ad-fs-aux); font-weight: 600; color: var(--ad-text-tertiary); }
 .home-group-count { font-size: var(--ad-fs-aux); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ad-primary); background: var(--ad-primary-soft); border-radius: var(--ad-radius-pill); padding: 0 10px; line-height: 20px; }
 .home-group-desc { font-size: var(--ad-fs-secondary); color: var(--ad-text-tertiary); margin-top: 6px; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-group-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-height: calc(4 * 20px + 3 * 8px); }
-.home-group-list li { display: flex; align-items: center; gap: 8px; min-width: 0; height: 20px; }
-.preview-name { font-size: var(--ad-fs-secondary); color: var(--ad-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-group-more { display: flex; align-items: center; gap: 3px; margin-top: auto; padding-top: 12px; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-primary); }
+.home-group-list { list-style: none; margin: 12px -8px 12px; padding: 0; display: flex; flex-direction: column; gap: 2px; min-height: calc(4 * 24px + 3 * 2px); }
+.home-group-list li { min-width: 0; }
+.home-group-item { display: flex; align-items: center; gap: 8px; width: 100%; height: 24px; padding: 0 8px; font: inherit; text-align: left; background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background var(--ad-duration); }
+.home-group-item:hover { background: var(--ad-hover); }
+.home-group-item:focus-visible { outline: 2px solid var(--ad-primary); outline-offset: -2px; }
+.home-group-item:hover .preview-name { color: var(--ad-text); }
+.preview-name { font-size: var(--ad-fs-secondary); color: var(--ad-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color var(--ad-duration); }
+.home-group-more { display: flex; align-items: center; justify-content: flex-end; gap: 3px; width: 100%; margin-top: auto; padding: 10px 0 0; font-family: inherit; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-primary); background: transparent; border: none; border-top: 1px solid var(--ad-border); cursor: pointer; }
 .home-group-more .el-icon { transition: transform var(--ad-duration); }
-.home-group:hover .home-group-more .el-icon { transform: translateX(2px); }
+.home-group-more:hover .el-icon { transform: translateX(2px); }
+
+/* 分组详情：返回入口 + 分组信息 + 全部接口 */
+.group-page { max-width: 880px; }
+.group-back { margin-bottom: 16px; }
+.group-page-head { display: flex; align-items: center; gap: 8px; }
+.group-page-title { margin: 0; font-size: var(--ad-fs-page-title); font-weight: 600; color: var(--ad-text); letter-spacing: -0.02em; }
+.group-page-desc { margin: 8px 0 0; font-size: var(--ad-fs-secondary); line-height: 1.7; color: var(--ad-text-tertiary); }
+.group-page-list { display: flex; flex-direction: column; gap: 2px; margin-top: 20px; padding: 10px; background: var(--ad-bg); border: 1px solid var(--ad-border); border-radius: var(--ad-radius-lg); box-shadow: var(--ad-shadow-sm); }
+.group-page-subhead { display: flex; align-items: center; gap: 6px; margin: 16px 0 4px; padding: 1px 8px; font-size: var(--ad-fs-aux); font-weight: 600; color: var(--ad-text-secondary); border-left: 2px solid var(--ad-primary-soft-2); }
+.group-page-subhead:first-child { margin-top: 0; }
+.group-page-subcount { color: var(--ad-text-tertiary); font-variant-numeric: tabular-nums; }
+.group-page-list .api-item.is-sub { width: calc(100% - 14px); margin-left: 14px; }
+.group-page-title:focus, .home:focus { outline: none; }
 
 /* ===== 响应式 ===== */
 .nav-scrim { display: none; }
@@ -1072,5 +1201,8 @@ watch(selectedService, () => {
   .openapi-btn { padding: 0 8px; }
   .home-hero { padding: 20px; }
   .home-title { font-size: var(--ad-fs-page-title); }
+  .home-group-item { height: 36px; }
+  .home-group-list { min-height: calc(4 * 36px + 3 * 2px); }
+  .group-page-list .api-item { padding: 10px 8px; }
 }
 </style>

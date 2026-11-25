@@ -9,6 +9,7 @@ import "@fontsource-variable/sora";
 import "./styles.css";
 import {
   ArrowDown,
+  ArrowLeft,
   CircleCheck,
   CircleClose,
   Close,
@@ -55,6 +56,7 @@ app.use(ElementPlus);
 // 全局注册模板用到的图标，避免整包进入首屏
 for (const [name, component] of Object.entries({
   ArrowDown,
+  ArrowLeft,
   CircleCheck,
   CircleClose,
   Close,

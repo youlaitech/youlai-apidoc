@@ -292,6 +292,13 @@ b, strong { font-variant-numeric: tabular-nums; }
 .ad-icon-btn:hover { color: var(--ad-primary); background: var(--ad-hover); }
 .ad-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* 返回上级：圆形图标 + 文字，hover 时图标变色并左移 */
+.ad-back { display: inline-flex; align-items: center; gap: 8px; padding: 0; font: inherit; color: var(--ad-text-secondary); background: none; border: none; cursor: pointer; }
+.ad-back-ico { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; font-size: 13px; color: var(--ad-text-secondary); background: var(--ad-bg-subtle); border: 1px solid var(--ad-border-soft); border-radius: 50%; transition: color var(--ad-duration), background var(--ad-duration), border-color var(--ad-duration), transform var(--ad-duration); }
+.ad-back-text { font-size: var(--ad-fs-secondary); font-weight: 500; letter-spacing: -0.01em; transition: color var(--ad-duration); }
+.ad-back:hover .ad-back-ico { color: var(--ad-primary); background: var(--ad-primary-soft); border-color: color-mix(in srgb, var(--ad-primary) 35%, transparent); transform: translateX(-2px); }
+.ad-back:hover .ad-back-text { color: var(--ad-primary); }
+
 /* 方法徽标（柔和 tint；小盒走 small 圆角档，不被钳成圆形） */
 .ad-method {
   flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;

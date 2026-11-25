@@ -29,17 +29,16 @@ describe("generateCode", () => {
     expect(code.endsWith(`  -d '{"name":"Tom'\\''s \\"quote\\"","enabled":true,"tags":[]}'`)).toBe(true);
   });
 
-  it("cURL (Windows)：双引号转义与 ^ 换行", () => {
-    const code = generateCode("curlWindows", base);
-    expect(code.split("\n")[0]).toBe('curl -X POST "https://api.example.com/v1/users?page=1&q=it\'s" ^');
-    expect(code).toContain('  -H "Authorization: Bearer ab\\"cd" ^');
-  });
-
   it("PowerShell：单引号成对转义，Content-Type 走 -ContentType", () => {
     const code = generateCode("powershell", base);
     expect(code).toContain("-Uri 'https://api.example.com/v1/users?page=1&q=it''s' -Method Post");
     expect(code).not.toContain('"Content-Type" =');
     expect(code).toContain("-ContentType 'application/json'");
+  });
+
+  it("PowerShell：请求与输出语句之间不留空行", () => {
+    const code = generateCode("powershell", { method: "get", url: base.url, headers: {} });
+    expect(code).not.toContain("\n\n");
   });
 
   it("JavaScript：JSON body 内嵌为对象字面量", () => {

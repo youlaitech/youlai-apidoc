@@ -27,7 +27,7 @@ const props = withDefaults(
   }
 );
 
-// v2 起默认语言改为 Windows cURL；旧键只用于保留用户已明确选择的其他语言
+// 语言选择存 localStorage，旧键只用于保留用户此前选过的语言
 const LANG_KEY = "apidoc-code-lang-v2";
 const LEGACY_LANG_KEY = "apidoc-code-lang";
 
@@ -36,11 +36,11 @@ function loadLang(): CodeLang {
     const saved = localStorage.getItem(LANG_KEY);
     if (isCodeLang(saved)) return saved;
     const legacy = localStorage.getItem(LEGACY_LANG_KEY);
-    if (isCodeLang(legacy) && legacy !== "curl") return legacy;
+    if (isCodeLang(legacy)) return legacy;
   } catch {
     // ignore
   }
-  return "curlWindows";
+  return "curl";
 }
 
 const lang = ref<CodeLang>(loadLang());

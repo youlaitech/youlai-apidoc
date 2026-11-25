@@ -37,15 +37,8 @@ type Tab = "auth" | "headers" | "base";
 const visible = ref(false);
 const tab = ref<Tab>("auth");
 
-/** 授权页当前段：fetch=一键获取令牌，manual=按 securitySchemes 手动粘贴 */
-type AuthMode = "fetch" | "manual";
-const authMode = ref<AuthMode>("fetch");
-function switchMode(mode: AuthMode) {
-  authMode.value = mode;
-  // 切回获取段时预载验证码，省一次点击
-  if (mode === "fetch") ensureCaptchas();
-  if (mode === "fetch") nextTick(() => usernameInputRef.value?.focus());
-}
+// 直接粘贴令牌的输入区默认收起，自动获取失败或没有获取能力时使用
+const manualOpen = ref(false);
 
 /* ===================== 授权 ===================== */
 
@@ -345,11 +338,9 @@ async function fetchNow(item: SchemeItem) {
       setAuthValue(name, token);
       authValuesDraft[name] = token;
     }
-    // 切到手动填写，用户可直接看到「已配置」徽标确认写入结果
-    authMode.value = "manual";
     tfStatus[item.name] = {
       type: "success",
-      text: `令牌已写入 ${fetchTargets.value.join("、")}，关闭弹窗后所有接口自动携带`,
+      text: `令牌已写入 ${fetchTargets.value.join("、")}，关闭弹窗后所有接口自动携带；可在「手动填写」中查看或调整`,
     };
   } catch (e: any) {
     const msg = e?.message || "获取令牌失败";
@@ -424,11 +415,11 @@ function open(target: Tab = "auth") {
       authValuesDraft[item.name] = saved;
     }
   }
-  // 初始段：待获取令牌时默认展示一键获取，已有凭据或无获取能力则直接手动填写
-  authMode.value = primaryItem.value && !authValues.value[primaryItem.value.name] ? "fetch" : "manual";
+  // 没有获取能力时直接展开令牌输入区
+  manualOpen.value = !primaryItem.value;
   visible.value = true;
   // 打开授权页时刷新一张验证码，避免展示上次已失效的图
-  if (target === "auth" && authMode.value === "fetch") {
+  if (target === "auth" && primaryItem.value) {
     ensureCaptchas(true);
     nextTick(() => usernameInputRef.value?.focus());
   }
@@ -462,25 +453,13 @@ defineExpose({ open });
 
       <template v-else>
         <div class="gs-auth-controls">
-          <div v-if="primaryItem" class="auth-seg">
-            <button :class="{ active: authMode === 'fetch' }" @click="switchMode('fetch')">
-              <el-icon><Key /></el-icon>一键获取
-            </button>
-            <button :class="{ active: authMode === 'manual' }" @click="switchMode('manual')">
-              <el-icon><EditPen /></el-icon>手动填写
-            </button>
-          </div>
+          <span class="gs-auth-label">Authorization</span>
+          <span class="gs-auth-state" :class="{ 'is-on': configuredAuthCount }">{{ configuredAuthCount ? "已配置" : "未配置" }}</span>
           <el-checkbox :model-value="rememberAuth" @change="onRememberAuthChange">记住授权</el-checkbox>
         </div>
 
-        <!-- 一键获取：bearer 类方案共用，成功后写入全部目标 -->
-        <div v-if="primaryItem && authMode === 'fetch'" class="tf-fetch">
-          <div class="tf-endpoint-summary">
-            <el-icon><Link /></el-icon>
-            <span>登录接口</span>
-            <code :class="{ 'is-missing': !tfConfig(tfItem).endpoint.trim() }">{{ tfConfig(tfItem).method }} {{ tfConfig(tfItem).endpoint || "未配置" }}</code>
-            <button class="tf-endpoint-edit" @click="openAdvanced(tfItem)">修改</button>
-          </div>
+        <!-- 获取令牌：bearer 类方案共用，成功后写入全部目标 -->
+        <div v-if="primaryItem" class="tf-fetch">
           <div class="tf-cred">
             <label class="tf-field">
               <span class="tf-field-label">用户名</span>
@@ -489,7 +468,7 @@ defineExpose({ open });
                 v-model="credRow(tfItem, 'username').value"
                 :class="{ 'is-invalid': credInvalid.username }"
                 placeholder="请输入用户名"
-                autocomplete="username"
+                autocomplete="off"
                 aria-required="true"
                 :aria-invalid="credInvalid.username"
                 @input="onCredInput('username')"
@@ -505,7 +484,7 @@ defineExpose({ open });
                 type="password"
                 show-password
                 placeholder="请输入密码"
-                autocomplete="current-password"
+                autocomplete="new-password"
                 aria-required="true"
                 :aria-invalid="credInvalid.password"
                 @input="onCredInput('password')"
@@ -586,8 +565,17 @@ defineExpose({ open });
           </div>
         </div>
 
-        <!-- 手动填写：按 securitySchemes 紧凑列表 -->
-        <div v-else class="manual-list">
+        <!-- 直接粘贴令牌：无获取能力时默认展开 -->
+        <button
+          v-if="primaryItem"
+          type="button"
+          class="gs-subtoggle"
+          :aria-expanded="manualOpen"
+          @click="manualOpen = !manualOpen"
+        >
+          {{ manualOpen ? "收起令牌输入" : "直接粘贴令牌" }}
+        </button>
+        <div v-if="!primaryItem || manualOpen" class="manual-list">
           <div v-for="item in schemeList" :key="item.name" class="scheme">
             <div class="scheme-head">
               <span class="scheme-name">{{ item.name }}</span>
@@ -613,7 +601,7 @@ defineExpose({ open });
         </div>
 
         <!-- 高级设置：获取段的自定义面板，展开后滚动到可见位置 -->
-        <div id="tf-advanced-panel" v-if="primaryItem && authMode === 'fetch'" v-show="tfAdvOpen[tfItem.name]" ref="advPanelRef" class="tf-panel">
+        <div id="tf-advanced-panel" v-if="primaryItem" v-show="tfAdvOpen[tfItem.name]" ref="advPanelRef" class="tf-panel">
           <p class="tf-adv-tip">默认配置通常无需修改。</p>
           <div class="tf-grid">
             <label class="tf-label">登录地址</label>
@@ -657,9 +645,6 @@ defineExpose({ open });
           </div>
         </div>
 
-        <div class="gs-pane-foot">
-          <button class="gs-link danger" @click="clearAuth"><el-icon><Delete /></el-icon>清除全部授权</button>
-        </div>
       </template>
     </div>
 
@@ -729,7 +714,12 @@ defineExpose({ open });
     </div>
 
     <template #footer>
-      <el-button type="primary" @click="visible = false">完成</el-button>
+      <div class="gs-footer">
+        <button v-if="tab === 'auth' && schemeList.length" class="gs-link danger" @click="clearAuth">
+          <el-icon><Delete /></el-icon>清除全部授权
+        </button>
+        <el-button type="primary" @click="visible = false">完成</el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -739,24 +729,28 @@ defineExpose({ open });
 :global(.gs-dialog) { max-height: 86vh; display: flex; flex-direction: column; }
 :global(.gs-dialog .el-dialog__body) { max-height: 64vh; overflow-y: auto; }
 
-/* 授权段切换：一键获取 / 手动填写 */
-.gs-auth-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.gs-auth-controls :deep(.el-checkbox) { flex-shrink: 0; height: 30px; }
-.auth-seg { display: inline-flex; gap: 3px; padding: 3px; background: var(--ad-bg-subtle); border-radius: var(--ad-radius); }
-.auth-seg button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-text-secondary); background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background var(--ad-duration), color var(--ad-duration); }
-.auth-seg button:hover { color: var(--ad-text); }
-.auth-seg button.active { color: var(--ad-primary); background: var(--ad-bg); box-shadow: var(--ad-shadow-sm); font-weight: 600; }
+/* 授权状态行：当前 header 与是否已配置 */
+.gs-auth-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.gs-auth-controls :deep(.el-checkbox) { flex-shrink: 0; height: 30px; margin-left: auto; }
+.gs-auth-label { font-size: var(--ad-fs-secondary); font-weight: 600; color: var(--ad-text); }
+.gs-auth-state { font-size: var(--ad-fs-aux); color: var(--ad-text-tertiary); }
+.gs-auth-state.is-on { color: var(--ad-success-text); }
+/* 直接粘贴令牌：主流程下方的次要入口 */
+.gs-subtoggle { display: inline-flex; align-items: center; gap: 4px; margin-top: 14px; padding: 0; font: inherit; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-primary); background: transparent; border: none; cursor: pointer; }
+.gs-subtoggle:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .gs-tabs { display: flex; gap: 4px; padding: 3px; background: var(--ad-bg-subtle); border-radius: var(--ad-radius); margin-bottom: 16px; }
 .gs-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; font-size: var(--ad-fs-secondary); font-weight: 500; color: var(--ad-text-secondary); background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background var(--ad-duration), color var(--ad-duration); }
 .gs-tabs button:hover { color: var(--ad-text); }
-.gs-tabs button.active { color: var(--ad-primary); background: var(--ad-bg); box-shadow: var(--ad-shadow-sm); font-weight: 600; }
+.gs-tabs button.active { color: var(--ad-primary); background: var(--ad-primary-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ad-primary) 25%, transparent); font-weight: 600; }
 .gs-tab-n { font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ad-on-primary); background: var(--ad-primary); border-radius: var(--ad-radius-pill); padding: 0 6px; line-height: 15px; }
 .gs-pane { min-height: 160px; }
 .gs-tip { margin: 0; font-size: var(--ad-fs-aux); line-height: 1.7; color: var(--ad-text-tertiary); }
 .gs-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 36px 0; font-size: var(--ad-fs-secondary); color: var(--ad-text-tertiary); }
 .gs-empty.small { padding: 20px 0; }
-.gs-pane-foot { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ad-border-soft); }
+.gs-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* 只有完成按钮时（非授权页签）仍然靠右 */
+.gs-footer :deep(.el-button) { margin-left: auto; }
 .gs-link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--ad-fs-aux); font-weight: 500; color: var(--ad-text-secondary); background: transparent; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
 .gs-link:hover { background: var(--ad-hover); }
 .gs-link.danger { color: var(--ad-danger-text); }
@@ -774,13 +768,7 @@ defineExpose({ open });
 .scheme-input { margin-bottom: 8px; }
 .scheme-input:last-child { margin-bottom: 0; }
 
-/* 一键获取令牌：主流程 */
-.tf-endpoint-summary { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; font-size: var(--ad-fs-aux); color: var(--ad-text-secondary); }
-.tf-endpoint-summary .el-icon { color: var(--ad-text-tertiary); }
-.tf-endpoint-summary code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--ad-font-mono); color: var(--ad-text); }
-.tf-endpoint-summary code.is-missing { color: var(--ad-warning-text); }
-.tf-endpoint-edit { flex-shrink: 0; margin-left: auto; padding: 2px 0; font-size: var(--ad-fs-aux); color: var(--ad-primary); background: transparent; border: none; cursor: pointer; }
-.tf-endpoint-edit:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* 获取令牌：主流程 */
 .tf-endpoint-tip { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 8px 10px; font-size: var(--ad-fs-aux); line-height: 1.5; color: var(--ad-warning-text); background: var(--ad-warning-bg); border-radius: var(--ad-radius); }
 .tf-cred { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 10px; }
 .tf-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
