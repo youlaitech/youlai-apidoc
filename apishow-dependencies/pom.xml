@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- BOM：使用方引入后无需声明版本号 -->
+    <groupId>tech.youlai</groupId>
+    <artifactId>apishow-dependencies</artifactId>
+    <version>0.4.0</version>
+    <packaging>pom</packaging>
+
+    <name>apishow-dependencies</name>
+    <description>apishow 版本管理 BOM</description>
+    <!-- 本 POM 不继承父 POM，Central 要求的元数据需再声明一次 -->
+    <url>https://github.com/youlaitech/youlai-apishow</url>
+
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>youlai</name>
+            <email>youlaitech@163.com</email>
+            <url>https://www.youlai.tech</url>
+            <organization>youlai</organization>
+            <organizationUrl>https://www.youlai.tech</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/youlaitech/youlai-apishow</url>
+        <connection>scm:git:https://github.com/youlaitech/youlai-apishow.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apishow.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
+    <!-- 本模块不继承父 POM：父 POM 通过 import 引入本 BOM，再加 parent 会形成 reactor 循环；
+         发布插件在此单独声明，与父 POM 的版本保持一致 -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.11.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.2.7</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals><goal>sign</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- apishow 自身模块 -->
+            <dependency>
+                <groupId>tech.youlai</groupId>
+                <artifactId>apishow-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.youlai</groupId>
+                <artifactId>apishow-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tech.youlai</groupId>
+                <artifactId>apishow-gateway-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

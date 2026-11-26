@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>tech.youlai</groupId>
+        <artifactId>apishow-parent</artifactId>
+        <version>0.4.0</version>
+    </parent>
+
+    <!-- 单体应用 Starter：引入后自动注册文档 UI + 跳转控制器 -->
+    <artifactId>apishow-spring-boot-starter</artifactId>
+
+    <name>apishow-spring-boot-starter</name>
+    <description>apishow 单体应用 Starter — Spring Boot 4 / Jakarta WebMvc</description>
+
+    <dependencies>
+        <!-- 核心模块：前端静态资源 + 配置属性 + 工具类 -->
+        <dependency>
+            <groupId>tech.youlai</groupId>
+            <artifactId>apishow-core</artifactId>
+        </dependency>
+        <!-- Spring Boot WebMvc（自动配置需要 ConditionalOnWebApplication） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring-boot.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- SpringDoc OpenAPI WebMvc — 提供 /v3/api-docs 端点 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+</project>

@@ -13,9 +13,9 @@ target/
 .settings/
 
 # Frontend
-apidoc-core/frontend/node_modules/
-apidoc-core/frontend/dist/
-apidoc-core/frontend/coverage/
+apishow-core/frontend/node_modules/
+apishow-core/frontend/dist/
+apishow-core/frontend/coverage/
 
 # Logs
 *.log

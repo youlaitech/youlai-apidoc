@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API 接口文档</title>
+    <script>
+      // 自愈：新构建后浏览器缓存的旧 index.html 会引用已被清空的 hash 资源，或缓存读取失败；
+      // 捕获脚本/样式加载错误后带时间戳重载一次绕过缓存，10 秒窗口防循环
+      (function () {
+        var KEY = "apishow-asset-reload";
+        window.addEventListener(
+          "error",
+          function (e) {
+            var tag = e.target && e.target.tagName;
+            if (tag !== "SCRIPT" && tag !== "LINK") return;
+            var last = Number(sessionStorage.getItem(KEY) || 0);
+            if (Date.now() - last < 10000) return;
+            sessionStorage.setItem(KEY, String(Date.now()));
+            location.replace(location.pathname + "?_v=" + Date.now() + location.hash);
+          },
+          true
+        );
+      })();
+    </script>
+    <script type="module" crossorigin src="/apishow/assets/app.D3IU-9KW.js"></script>
+    <link rel="stylesheet" crossorigin href="/apishow/assets/index.CN89FQtq.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

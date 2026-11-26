@@ -6,13 +6,13 @@
 
     <!-- 父项目：统一管理子模块构建和发布配置 -->
     <groupId>tech.youlai</groupId>
-    <artifactId>apidoc-parent</artifactId>
-    <version>0.3.3</version>
+    <artifactId>apishow-parent</artifactId>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
 
-    <name>apidoc-parent</name>
+    <name>apishow-parent</name>
     <description>OpenAPI 3 接口文档 UI — knife4j 替代方案，基于 SpringDoc + Vue3 自建</description>
-    <url>https://github.com/youlaitech/youlai-apidoc</url>
+    <url>https://github.com/youlaitech/youlai-apishow</url>
 
     <licenses>
         <license>
@@ -32,17 +32,17 @@
     </developers>
 
     <scm>
-        <url>https://github.com/youlaitech/youlai-apidoc</url>
-        <connection>scm:git:https://github.com/youlaitech/youlai-apidoc.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apidoc.git</developerConnection>
+        <url>https://github.com/youlaitech/youlai-apishow</url>
+        <connection>scm:git:https://github.com/youlaitech/youlai-apishow.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/youlaitech/youlai-apishow.git</developerConnection>
         <tag>HEAD</tag>
     </scm>
 
     <modules>
-        <module>apidoc-dependencies</module>
-        <module>apidoc-core</module>
-        <module>apidoc-spring-boot-starter</module>
-        <module>apidoc-gateway-spring-boot-starter</module>
+        <module>apishow-dependencies</module>
+        <module>apishow-core</module>
+        <module>apishow-spring-boot-starter</module>
+        <module>apishow-gateway-spring-boot-starter</module>
     </modules>
 
     <!-- 子模块依赖版本统一由 BOM 解析 -->
@@ -50,7 +50,7 @@
         <dependencies>
             <dependency>
                 <groupId>tech.youlai</groupId>
-                <artifactId>apidoc-dependencies</artifactId>
+                <artifactId>apishow-dependencies</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
